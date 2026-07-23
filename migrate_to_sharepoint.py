@@ -22,7 +22,7 @@ import openpyxl
 # CONFIGURATION - UPDATE THESE VALUES
 # ============================================================
 EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SORTIS_FLOOR_PLAN.xlsx")
-SHAREPOINT_SITE = "https://a360inc.sharepoint.com/sites/YOURSITE"  # UPDATE THIS
+SHAREPOINT_SITE = "https://a360inc.sharepoint.com/sites/PTYFiles"
 
 # Authentication - choose one:
 AUTH_METHOD = "ntlm"  # "ntlm" for Windows Integrated Auth

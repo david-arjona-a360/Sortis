@@ -430,6 +430,7 @@ body {
   <span class="admin-label">Admin Mode</span>
   <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
   <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
+  <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
 </div>
 <div id="legend"></div>
 <div id="grid-container"><div id="grid"></div></div>
@@ -1299,7 +1300,72 @@ function initAdmin() {
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
     document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+    if (isSharePoint) {
+      document.getElementById('btn-seed').style.display = 'inline-block';
+    }
   }
+}
+
+// ============================================================
+// SEED DATA: Populate SharePoint Lists from embedded data
+// ============================================================
+async function seedSharePointData() {
+  if (!isSharePoint) { toast('SharePoint not configured', 'error'); return; }
+  var people = DATA.people_directory || [];
+  var seats = DATA.seats || [];
+  var confirmMsg = 'This will create ' + people.length + ' people and ' + seats.filter(function(s){return s.person}).length + ' seat assignments in SharePoint Lists. Continue?';
+  if (!confirm(confirmMsg)) return;
+
+  var btn = document.getElementById('btn-seed');
+  btn.disabled = true;
+  btn.textContent = 'Seeding...';
+  var created = 0;
+  var errors = 0;
+
+  try {
+    // Seed People
+    toast('Creating people records...', 'info');
+    for (var i = 0; i < people.length; i++) {
+      var p = people[i];
+      try {
+        await spCreate(PEOPLE_LIST, {
+          Title: p.name,
+          Department: p.department || '',
+          JobTitle: p.title || '',
+          Status: 'Active'
+        });
+        created++;
+      } catch(e) { errors++; }
+    }
+    toast('People: ' + created + ' created, ' + errors + ' errors', 'success');
+
+    // Seed Seats
+    var seatCreated = 0;
+    var seatErrors = 0;
+    toast('Creating seat assignments...', 'info');
+    for (var j = 0; j < seats.length; j++) {
+      var s = seats[j];
+      if (!s.person || !s.person.name) continue;
+      try {
+        await spCreate(SEATS_LIST, {
+          Title: s.seat_no,
+          PersonName: s.person.name,
+          Brigadista: s.brigadista || '',
+          Notas: s.person.notas || ''
+        });
+        seatCreated++;
+      } catch(e) { seatErrors++; }
+    }
+    toast('Seats: ' + seatCreated + ' created, ' + seatErrors + ' errors', 'success');
+
+    btn.textContent = 'Seed Complete!';
+    btn.style.background = '#2e7d32';
+  } catch(e) {
+    toast('Seed failed: ' + e.message, 'error');
+    btn.textContent = 'Seed Failed';
+    btn.style.background = '#c62828';
+  }
+  btn.disabled = false;
 }
 
 document.addEventListener('DOMContentLoaded', function() {

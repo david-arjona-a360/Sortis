@@ -173,7 +173,7 @@ def build_brigadistas(seats_with_people):
     return sorted(brig.keys())
 
 
-def generate_html(data_json):
+def generate_html(static_json, data_json):
     return '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -332,6 +332,8 @@ body {
 .btn-danger:hover { background: #b71c1c; }
 .btn-secondary { background: #e0e0e0; color: #333; }
 .btn-secondary:hover { background: #bdbdbd; }
+.btn-success { background: #2e7d32; color: #fff; }
+.btn-success:hover { background: #1b5e20; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .autocomplete-wrap { position: relative; }
 .autocomplete-input {
@@ -355,6 +357,20 @@ body {
   font-size: 11px; color: #888; margin-left: 6px;
 }
 .autocomplete-item.selected { background: #c5cae9; font-weight: 600; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: #555; margin-bottom: 4px; text-transform: uppercase;
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 2px solid #ddd;
+  border-radius: 6px; font-size: 14px; outline: none;
+  font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color: #1a237e;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
 #confirm-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.4); z-index: 2000;
@@ -386,6 +402,15 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 #tooltip.visible { display: block; }
+.admin-panel {
+  display: none; background: #fff3e0; padding: 8px 20px;
+  border-bottom: 2px solid #ff9800; font-size: 12px;
+  align-items: center; gap: 12px;
+}
+.admin-panel.visible { display: flex; }
+.admin-panel .admin-label {
+  font-weight: 700; color: #e65100; text-transform: uppercase;
+}
 </style>
 </head>
 <body>
@@ -400,6 +425,11 @@ body {
     <span id="counter">Cargando...</span>
     <span id="sp-status" class="connected">Conectado a SharePoint</span>
   </div>
+</div>
+<div id="admin-panel" class="admin-panel">
+  <span class="admin-label">Admin Mode</span>
+  <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
+  <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
 </div>
 <div id="legend"></div>
 <div id="grid-container"><div id="grid"></div></div>
@@ -429,6 +459,7 @@ var DEPT_COLORS = {
   Finance: '#c8e6c9', IT: '#bbdefb', ENS: '#ffe0b2', Title: '#e1bee7',
   IBC: '#fff9c4', CaseAware: '#f8bbd0', VS360: '#b2dfdb', 'Firm Solutions': '#dcedc8'
 };
+var DEPARTMENTS = ['Finance', 'IT', 'ENS', 'Title', 'IBC', 'CaseAware', 'VS360', 'Firm Solutions'];
 var ROOM_COLORS = {
   COMEDOR: '#a5d6a7', ARCHIVE: '#bcaaa4', 'CUARTO DE IT': '#81d4fa',
   'BA\\u00d1O DE MUJERES': '#bdbdbd', 'BA\\u00d1O DE HOMBRES': '#bdbdbd',
@@ -443,12 +474,18 @@ var ROOM_COLORS = {
 };
 
 var SHAREPOINT_SITE = '';
-var DATA_FILE_PATH = '/sites/YOURSITE/Shared Documents/FloorPlan/data.json';
+var PEOPLE_LIST = 'People';
+var SEATS_LIST = 'Seats';
 
+var STATIC_DATA = ''' + static_json + ''';
 var DATA = ''' + data_json + ''';
-var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
+
 var isSharePoint = SHAREPOINT_SITE.length > 0;
+var isAdmin = new URLSearchParams(window.location.search).has('admin');
+var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
 var hasChanges = false;
+var spPeople = [];
+var spSeats = [];
 
 function getDeptColor(d) { return d && DEPT_COLORS[d] ? DEPT_COLORS[d] : '#e0e0e0'; }
 function getRoomColor(name) {
@@ -495,7 +532,7 @@ function buildGrid() {
   LOCAL_DATA.seats.forEach(function(s) { seatMap[s.row + ',' + s.col] = s; });
   var roomOrigin = {};
   var covered = {};
-  LOCAL_DATA.rooms.forEach(function(r) {
+  STATIC_DATA.rooms.forEach(function(r) {
     roomOrigin[r.min_row + ',' + r.min_col] = r;
     for (var rr = r.min_row; rr <= r.max_row; rr++) {
       for (var cc = r.min_col; cc <= r.max_col; cc++) {
@@ -579,7 +616,10 @@ function showModal(seat) {
     h += fl('Brigadista', seat.brigadista || (p ? p.brigadista : ''));
     h += fl('Notas de Salud', p.notas);
     h += '<div class="modal-actions">';
-    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button>';
+    if (isAdmin) {
+      h += '<button class="btn btn-success" onclick="editPerson(\\'' + p.name.replace(/'/g, "\\'") + '\\')">Edit Person</button> ';
+    }
+    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button> ';
     h += '<button class="btn btn-danger" onclick="confirmUnassign(\\'' + seat.seat_no + '\\')">Desasignar</button>';
     h += '</div>';
   } else {
@@ -764,53 +804,416 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
 }
 
+// ============================================================
+// ADMIN: Edit Person
+// ============================================================
+function editPerson(personName) {
+  document.getElementById('modal-overlay').classList.remove('active');
+  var pd = LOCAL_DATA.people_directory || [];
+  var person = null;
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name === personName) { person = pd[i]; break; }
+  }
+  if (!person) { toast('Person not found', 'error'); return; }
+
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Edit Person';
+  var h = '<div class="form-group"><label>Full Name</label>';
+  h += '<input type="text" id="edit-name" value="' + (person.name || '').replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="form-group"><label>Department</label>';
+  h += '<select id="edit-dept">';
+  DEPARTMENTS.forEach(function(d) {
+    var sel = person.department === d ? ' selected' : '';
+    h += '<option value="' + d + '"' + sel + '>' + d + '</option>';
+  });
+  h += '</select></div>';
+  h += '<div class="form-group"><label>Job Title</label>';
+  h += '<input type="text" id="edit-title" value="' + (person.title || '').replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="savePersonEdit(\\'' + personName.replace(/'/g, "\\'") + '\\')">Save</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function savePersonEdit(oldName) {
+  var newName = document.getElementById('edit-name').value.trim();
+  var newDept = document.getElementById('edit-dept').value;
+  var newTitle = document.getElementById('edit-title').value.trim();
+  if (!newName) { toast('Name is required', 'error'); return; }
+
+  // Update people_directory
+  var pd = LOCAL_DATA.people_directory || [];
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name === oldName) {
+      pd[i].name = newName;
+      pd[i].department = newDept;
+      pd[i].title = newTitle;
+      break;
+    }
+  }
+
+  // Update all seats with this person
+  LOCAL_DATA.seats.forEach(function(s) {
+    if (s.person && s.person.name === oldName) {
+      s.person.name = newName;
+      s.person.department = newDept;
+      s.person.title = newTitle;
+    }
+  });
+
+  // Update brigadistas if name changed
+  if (oldName !== newName) {
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.brigadista === oldName) s.brigadista = newName;
+    });
+  }
+
+  hasChanges = true;
+  closeModal();
+  refreshGrid();
+  toast('Person updated: ' + newName, 'success');
+  autoSave();
+}
+
+// ============================================================
+// ADMIN: Add New Person
+// ============================================================
+function showAddPersonModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Add New Person';
+  var h = '<div class="form-group"><label>Full Name</label>';
+  h += '<input type="text" id="new-name" placeholder="Enter full name"></div>';
+  h += '<div class="form-group"><label>Department</label>';
+  h += '<select id="new-dept">';
+  DEPARTMENTS.forEach(function(d) {
+    h += '<option value="' + d + '">' + d + '</option>';
+  });
+  h += '</select></div>';
+  h += '<div class="form-group"><label>Job Title</label>';
+  h += '<input type="text" id="new-title" placeholder="Enter job title"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveNewPerson()">Add Person</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function saveNewPerson() {
+  var name = document.getElementById('new-name').value.trim();
+  var dept = document.getElementById('new-dept').value;
+  var title = document.getElementById('new-title').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+
+  // Check duplicate
+  var pd = LOCAL_DATA.people_directory || [];
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name.toLowerCase() === name.toLowerCase()) {
+      toast('Person already exists', 'error');
+      return;
+    }
+  }
+
+  pd.push({ name: name, department: dept, title: title });
+  pd.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  LOCAL_DATA.people_directory = pd;
+
+  hasChanges = true;
+  closeModal();
+  toast('Person added: ' + name, 'success');
+  autoSave();
+}
+
+// ============================================================
+// ADMIN: Manage Brigadistas
+// ============================================================
+function showManageBrigadistasModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Manage Brigadistas';
+  var brigadistas = LOCAL_DATA.brigadistas || [];
+  var h = '<div style="margin-bottom:12px">';
+  h += '<div class="form-group"><label>Add Brigadista (from People directory)</label>';
+  h += '<div class="autocomplete-wrap">';
+  h += '<input type="text" class="autocomplete-input" id="brig-ac-input" placeholder="Search person..." autocomplete="off">';
+  h += '<div class="autocomplete-list" id="brig-ac-list"></div>';
+  h += '</div></div>';
+  h += '<button class="btn btn-primary" id="btn-add-brig" disabled onclick="addBrigadista()" style="font-size:12px">Add</button>';
+  h += '</div>';
+  h += '<div style="border-top:1px solid #eee;padding-top:12px">';
+  h += '<div class="field-label" style="margin-bottom:8px">Current Brigadistas (' + brigadistas.length + ')</div>';
+  brigadistas.forEach(function(b) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f5f5f5;border-radius:6px">';
+    h += '<span style="flex:1;font-size:13px">' + b + '</span>';
+    h += '<button class="btn btn-danger" style="font-size:11px;padding:3px 8px" onclick="removeBrigadista(\\'' + b.replace(/'/g, "\\'") + '\\')">Remove</button>';
+    h += '</div>';
+  });
+  if (brigadistas.length === 0) h += '<div style="color:#999;font-style:italic;font-size:13px">No brigadistas assigned</div>';
+  h += '</div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  setupBrigadistaAutocomplete();
+}
+
+var selectedBrigPerson = null;
+function setupBrigadistaAutocomplete() {
+  selectedBrigPerson = null;
+  var input = document.getElementById('brig-ac-input');
+  var list = document.getElementById('brig-ac-list');
+  var btn = document.getElementById('btn-add-brig');
+
+  function renderList(filter) {
+    var html = '';
+    var people = LOCAL_DATA.people_directory || [];
+    var brigadistas = LOCAL_DATA.brigadistas || [];
+    var count = 0;
+    for (var i = 0; i < people.length && count < 20; i++) {
+      var p = people[i];
+      if (brigadistas.indexOf(p.name) >= 0) continue;
+      if (filter && p.name.toLowerCase().indexOf(filter.toLowerCase()) < 0) continue;
+      html += '<div class="autocomplete-item" data-name="' + p.name.replace(/"/g, '&quot;') + '">';
+      html += p.name + '<span class="ac-dept">' + (p.department || '') + '</span></div>';
+      count++;
+    }
+    if (count === 0) html = '<div class="autocomplete-item" style="color:#999">No available people</div>';
+    list.innerHTML = html;
+    list.classList.add('open');
+    list.querySelectorAll('.autocomplete-item[data-name]').forEach(function(item) {
+      item.addEventListener('click', function() {
+        selectedBrigPerson = this.getAttribute('data-name');
+        input.value = selectedBrigPerson;
+        list.classList.remove('open');
+        btn.disabled = false;
+      });
+    });
+  }
+
+  input.addEventListener('input', function() {
+    selectedBrigPerson = null;
+    btn.disabled = true;
+    renderList(this.value);
+  });
+  input.addEventListener('focus', function() { renderList(this.value); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-wrap')) list.classList.remove('open');
+  });
+}
+
+function addBrigadista() {
+  if (!selectedBrigPerson) return;
+  var brig = LOCAL_DATA.brigadistas || [];
+  if (brig.indexOf(selectedBrigPerson) >= 0) { toast('Already a brigadista', 'error'); return; }
+  brig.push(selectedBrigPerson);
+  brig.sort();
+  LOCAL_DATA.brigadistas = brig;
+  hasChanges = true;
+  showManageBrigadistasModal();
+  toast('Brigadista added: ' + selectedBrigPerson, 'success');
+  autoSave();
+}
+
+function removeBrigadista(name) {
+  var brig = LOCAL_DATA.brigadistas || [];
+  LOCAL_DATA.brigadistas = brig.filter(function(b) { return b !== name; });
+  hasChanges = true;
+  showManageBrigadistasModal();
+  toast('Brigadista removed: ' + name, 'info');
+  autoSave();
+}
+
+// ============================================================
+// SHAREPOINT LISTS API
+// ============================================================
+function getDigest() {
+  var d = document.querySelector('#__REQUESTDIGEST');
+  return d ? d.value : '';
+}
+
+function spGet(listName) {
+  if (!isSharePoint) return Promise.resolve([]);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items?$top=5000";
+  return fetch(url, {
+    headers: { 'Accept': 'application/json;odata=verbose' }
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    return data.d.results || [];
+  });
+}
+
+function spCreate(listName, itemData) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest()
+    },
+    body: JSON.stringify(itemData)
+  }).then(function(r) { return r.json(); });
+}
+
+function spUpdate(listName, itemId, itemData) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest(),
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'MERGE'
+    },
+    body: JSON.stringify(itemData)
+  });
+}
+
+function spDelete(listName, itemId) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest(),
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'DELETE'
+    }
+  });
+}
+
+function loadFromSharePointLists() {
+  if (!isSharePoint) return;
+  document.getElementById('sp-status').classList.add('connected');
+
+  Promise.all([spGet(PEOPLE_LIST), spGet(SEATS_LIST)]).then(function(results) {
+    spPeople = results[0];
+    spSeats = results[1];
+
+    // Build people_directory from People list
+    var peopleDir = [];
+    spPeople.forEach(function(item) {
+      peopleDir.push({
+        name: item.Title || '',
+        department: item.Department || '',
+        title: item.JobTitle || '',
+        _spId: item.Id
+      });
+    });
+    LOCAL_DATA.people_directory = peopleDir;
+
+    // Build brigadistas from People list (filter Status = Brigadista or separate logic)
+    // For now, keep existing brigadistas logic
+
+    // Build seats from Seats list + static seat_positions
+    var seatMap = {};
+    spSeats.forEach(function(item) {
+      seatMap[item.Title] = {
+        name: item.PersonName || null,
+        brigadista: item.Brigadista || null,
+        notas: item.Notas || null,
+        _spId: item.Id
+      };
+    });
+
+    LOCAL_DATA.seats = STATIC_DATA.seat_positions.map(function(sp) {
+      var seatNo = sp.seat_no;
+      var alloc = seatMap[seatNo];
+      var person = null;
+      if (alloc && alloc.name) {
+        var pd = null;
+        for (var i = 0; i < peopleDir.length; i++) {
+          if (peopleDir[i].name === alloc.name) { pd = peopleDir[i]; break; }
+        }
+        person = {
+          name: alloc.name,
+          brigadista: alloc.brigadista,
+          notas: alloc.notas,
+          department: pd ? pd.department : null,
+          title: pd ? pd.title : null
+        };
+      }
+      return {
+        row: sp.row,
+        col: sp.col,
+        seat_no: seatNo,
+        person: person,
+        brigadista: alloc ? alloc.brigadista : null
+      };
+    });
+
+    // Update departments
+    var depts = {};
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.person && s.person.department) depts[s.person.department] = 1;
+    });
+    LOCAL_DATA.departments = Object.keys(depts).sort();
+
+    // Update brigadistas
+    var brig = {};
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.brigadista) brig[s.brigadista] = 1;
+    });
+    LOCAL_DATA.brigadistas = Object.keys(brig).sort();
+
+    refreshGrid();
+    toast('Data loaded from SharePoint Lists', 'success');
+  }).catch(function(err) {
+    console.error('SharePoint load error:', err);
+    toast('Could not connect to SharePoint, using local data', 'info');
+  });
+}
+
+function saveToSharePointLists() {
+  if (!isSharePoint || !hasChanges) return;
+
+  // Save each seat assignment
+  var promises = [];
+  LOCAL_DATA.seats.forEach(function(seat) {
+    var spSeat = null;
+    for (var i = 0; i < spSeats.length; i++) {
+      if (spSeats[i].Title === seat.seat_no) { spSeat = spSeats[i]; break; }
+    }
+
+    if (seat.person) {
+      var data = {
+        Title: seat.seat_no,
+        PersonName: seat.person.name || '',
+        Brigadista: seat.brigadista || '',
+        Notas: seat.person.notas || ''
+      };
+      if (spSeat) {
+        promises.push(spUpdate(SEATS_LIST, spSeat.Id, data));
+      } else {
+        promises.push(spCreate(SEATS_LIST, data));
+      }
+    } else if (spSeat) {
+      promises.push(spDelete(SEATS_LIST, spSeat.Id));
+    }
+  });
+
+  Promise.all(promises).then(function() {
+    hasChanges = false;
+    toast('Changes saved to SharePoint', 'success');
+  }).catch(function(err) {
+    console.error('SharePoint save error:', err);
+    toast('Error saving to SharePoint', 'error');
+  });
+}
+
 var saveTimeout = null;
 function autoSave() {
   if (!isSharePoint) return;
   if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(function() { saveToSharePoint(); }, 2000);
-}
-
-function saveToSharePoint() {
-  if (!isSharePoint) return;
-  LOCAL_DATA.timestamp = new Date().toISOString();
-  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
-  var digest = document.querySelector('#__REQUESTDIGEST');
-  var digestVal = digest ? digest.value : '';
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'X-RequestDigest': digestVal,
-      'Content-Type': 'application/json',
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'MERGE'
-    },
-    body: JSON.stringify(LOCAL_DATA)
-  }).then(function(r) {
-    if (r.ok) {
-      toast('Cambios guardados en SharePoint', 'success');
-      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date().toLocaleString('es-PA');
-    } else {
-      toast('Error al guardar en SharePoint', 'error');
-    }
-  }).catch(function() {
-    toast('Error de conexion con SharePoint', 'error');
-  });
-}
-
-function loadFromSharePoint() {
-  if (!isSharePoint) return;
-  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
-  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    LOCAL_DATA = data;
-    refreshGrid();
-    if (data.timestamp) {
-      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date(data.timestamp).toLocaleString('es-PA');
-    }
-    toast('Datos cargados desde SharePoint', 'success');
-  }).catch(function() {
-    toast('No se pudo conectar a SharePoint, usando datos locales', 'info');
-  });
+  saveTimeout = setTimeout(function() { saveToSharePointLists(); }, 2000);
 }
 
 function updateCounter() {
@@ -892,15 +1295,22 @@ function initModalClose() {
   });
 }
 
+function initAdmin() {
+  if (isAdmin) {
+    document.getElementById('admin-panel').classList.add('visible');
+    document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  initAdmin();
   buildGrid();
   initFilters();
   initLegend();
   initModalClose();
   updateCounter();
   if (isSharePoint) {
-    document.getElementById('sp-status').classList.add('connected');
-    loadFromSharePoint();
+    loadFromSharePointLists();
   }
 });
 </script>
@@ -937,6 +1347,13 @@ def main():
     brigadistas = build_brigadistas(seats_with_people)
     timestamp = datetime.now().isoformat()
 
+    # Static data (rooms + seat positions) - never changes
+    static_data = {
+        "rooms": room_cells,
+        "seat_positions": seat_positions,
+    }
+
+    # Full data (for JSON export and local mode)
     output = {
         "rooms": room_cells,
         "seats": seats_with_people,
@@ -952,8 +1369,9 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
     print(f"\nJSON: {JSON_PATH} ({os.path.getsize(JSON_PATH):,} bytes)")
 
+    static_json = json.dumps(static_data, ensure_ascii=False)
     data_json = json.dumps(output, ensure_ascii=False)
-    html = generate_html(data_json)
+    html = generate_html(static_json, data_json)
     with open(HTML_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")

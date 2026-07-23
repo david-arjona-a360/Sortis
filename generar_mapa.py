@@ -3,11 +3,12 @@
 """
 Lee el archivo Excel SORTIS_FLOOR_PLAN.xlsx y genera:
   1. floor_plan_data.json  (datos completos para referencia)
-  2. floor_plan.html       (mapa interactivo autocontenido)
+  2. floor_plan.html       (mapa interactivo autocontenido con SharePoint + edicion)
 """
 
 import json
 import os
+from datetime import datetime
 import openpyxl
 
 EXCEL_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx"
@@ -20,7 +21,6 @@ GRID_COLS = 27
 
 
 def fix_encoding(s):
-    """Fix mojibake: UTF-8 bytes decoded as Latin-1/CP1252."""
     if not isinstance(s, str):
         return s
     try:
@@ -139,8 +139,39 @@ def join_data(seat_positions, seats_alloc, people):
     return result
 
 
+def build_people_directory(seats_with_people, people_sheet):
+    seen = {}
+    for s in seats_with_people:
+        if s["person"] and s["person"]["name"]:
+            name = s["person"]["name"]
+            if name not in seen:
+                seen[name] = {
+                    "name": name,
+                    "department": s["person"].get("department"),
+                    "title": s["person"].get("title"),
+                }
+    for name, info in people_sheet.items():
+        if name not in seen:
+            seen[name] = {
+                "name": name,
+                "department": info.get("department"),
+                "title": info.get("title"),
+            }
+    return sorted(seen.values(), key=lambda x: x["name"])
+
+
+def build_brigadistas(seats_with_people):
+    brig = {}
+    for s in seats_with_people:
+        b = s.get("brigadista")
+        if b:
+            if b not in brig:
+                brig[b] = 0
+            brig[b] += 1
+    return sorted(brig.keys())
+
+
 def generate_html(data_json):
-    """Generate self-contained HTML with embedded data."""
     return '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -175,7 +206,7 @@ body {
 }
 #topbar h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
 #topbar .controls {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; margin-left: auto;
 }
 #topbar label { font-size: 12px; opacity: 0.85; }
@@ -190,9 +221,15 @@ body {
   border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.25);
 }
 #counter {
-  font-size: 13px; background: rgba(255,255,255,0.15);
+  font-size: 12px; background: rgba(255,255,255,0.15);
   padding: 4px 12px; border-radius: 12px; white-space: nowrap;
 }
+#sp-status {
+  font-size: 11px; padding: 3px 8px; border-radius: 8px;
+  background: rgba(76,175,80,0.3); border: 1px solid rgba(76,175,80,0.5);
+  white-space: nowrap; display: none;
+}
+#sp-status.connected { display: inline-block; }
 #legend {
   background: #fff; padding: 6px 20px;
   display: flex; align-items: center; gap: 12px;
@@ -253,7 +290,7 @@ body {
 #modal {
   background: #fff; border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  max-width: 420px; width: 90%; overflow: hidden;
+  max-width: 480px; width: 92%; overflow: hidden;
   animation: modalIn 0.2s ease;
 }
 @keyframes modalIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -267,7 +304,7 @@ body {
   cursor: pointer; padding: 0 4px; opacity: 0.8;
 }
 #modal-close:hover { opacity: 1; }
-#modal-body { padding: 20px; }
+#modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
 #modal-body .field { margin-bottom: 12px; }
 #modal-body .field-label {
   font-size: 11px; text-transform: uppercase; color: #888;
@@ -279,6 +316,67 @@ body {
   display: inline-block; padding: 3px 10px; border-radius: 12px;
   font-size: 12px; font-weight: 600; margin-top: 2px;
 }
+.modal-actions {
+  display: flex; gap: 10px; margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+.btn {
+  padding: 8px 16px; border-radius: 6px; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: none; transition: all 0.15s;
+}
+.btn-primary { background: #1a237e; color: #fff; }
+.btn-primary:hover { background: #283593; }
+.btn-danger { background: #c62828; color: #fff; }
+.btn-danger:hover { background: #b71c1c; }
+.btn-secondary { background: #e0e0e0; color: #333; }
+.btn-secondary:hover { background: #bdbdbd; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.autocomplete-wrap { position: relative; }
+.autocomplete-input {
+  width: 100%; padding: 10px 12px; border: 2px solid #ddd;
+  border-radius: 6px; font-size: 14px; outline: none;
+}
+.autocomplete-input:focus { border-color: #1a237e; }
+.autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: #fff; border: 1px solid #ddd; border-radius: 0 0 6px 6px;
+  max-height: 200px; overflow-y: auto; z-index: 10;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;
+}
+.autocomplete-list.open { display: block; }
+.autocomplete-item {
+  padding: 8px 12px; cursor: pointer; font-size: 13px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.autocomplete-item:hover { background: #e8eaf6; }
+.autocomplete-item .ac-dept {
+  font-size: 11px; color: #888; margin-left: 6px;
+}
+.autocomplete-item.selected { background: #c5cae9; font-weight: 600; }
+#confirm-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); z-index: 2000;
+  justify-content: center; align-items: center;
+}
+#confirm-overlay.active { display: flex; }
+#confirm-box {
+  background: #fff; border-radius: 10px; padding: 24px;
+  max-width: 360px; width: 90%; text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+#confirm-box h3 { margin-bottom: 12px; font-size: 16px; }
+#confirm-box p { margin-bottom: 20px; color: #666; font-size: 14px; }
+#confirm-box .modal-actions { justify-content: center; border: none; padding: 0; }
+#toast {
+  position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+  border-radius: 8px; font-size: 13px; font-weight: 500;
+  z-index: 3000; transform: translateY(100px); opacity: 0;
+  transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { background: #2e7d32; color: #fff; }
+#toast.error { background: #c62828; color: #fff; }
+#toast.info { background: #1565c0; color: #fff; }
 #tooltip {
   display: none; position: fixed; background: #333; color: #fff;
   padding: 6px 10px; border-radius: 6px; font-size: 12px;
@@ -294,8 +392,11 @@ body {
   <div class="controls">
     <label>Departamento:</label>
     <select id="filter-dept"><option value="all">Todos</option></select>
+    <label>Brigadista:</label>
+    <select id="filter-brig"><option value="all">Todos</option></select>
     <input type="text" id="search" placeholder="Buscar persona...">
     <span id="counter">Cargando...</span>
+    <span id="sp-status" class="connected">Conectado a SharePoint</span>
   </div>
 </div>
 <div id="legend"></div>
@@ -309,13 +410,24 @@ body {
     <div id="modal-body"></div>
   </div>
 </div>
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3 id="confirm-title">Confirmar</h3>
+    <p id="confirm-msg"></p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
 <div id="tooltip"></div>
 <script>
-const DEPT_COLORS = {
+var DEPT_COLORS = {
   Finance: '#c8e6c9', IT: '#bbdefb', ENS: '#ffe0b2', Title: '#e1bee7',
   IBC: '#fff9c4', CaseAware: '#f8bbd0', VS360: '#b2dfdb', 'Firm Solutions': '#dcedc8'
 };
-const ROOM_COLORS = {
+var ROOM_COLORS = {
   COMEDOR: '#a5d6a7', ARCHIVE: '#bcaaa4', 'CUARTO DE IT': '#81d4fa',
   'BA\\u00d1O DE MUJERES': '#bdbdbd', 'BA\\u00d1O DE HOMBRES': '#bdbdbd',
   LOCKERS: '#cfd8dc', 'SALA DE ENTRENAMIENTO': '#90caf9',
@@ -328,10 +440,15 @@ const ROOM_COLORS = {
   'HR162': '#a1887f', Supervisor: '#ffe082'
 };
 
-const DATA = ''' + data_json + ''';
+var SHAREPOINT_SITE = '';
+var DATA_FILE_PATH = '/sites/YOURSITE/Shared Documents/FloorPlan/data.json';
+
+var DATA = ''' + data_json + ''';
+var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
+var isSharePoint = SHAREPOINT_SITE.length > 0;
+var hasChanges = false;
 
 function getDeptColor(d) { return d && DEPT_COLORS[d] ? DEPT_COLORS[d] : '#e0e0e0'; }
-
 function getRoomColor(name) {
   if (!name) return '#ddd';
   var n = name.trim();
@@ -341,14 +458,42 @@ function getRoomColor(name) {
   return '#e0e0e0';
 }
 
-(function buildGrid() {
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || 'info');
+  setTimeout(function() { t.className = ''; }, 3000);
+}
+
+function getSeatByNo(no) {
+  for (var i = 0; i < LOCAL_DATA.seats.length; i++) {
+    if (LOCAL_DATA.seats[i].seat_no === no) return LOCAL_DATA.seats[i];
+  }
+  return null;
+}
+
+function getSeatByRC(r, c) {
+  for (var i = 0; i < LOCAL_DATA.seats.length; i++) {
+    if (LOCAL_DATA.seats[i].row === r && LOCAL_DATA.seats[i].col === c) return LOCAL_DATA.seats[i];
+  }
+  return null;
+}
+
+function refreshGrid() {
+  var grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  buildGrid();
+  applyFilters();
+  updateCounter();
+}
+
+function buildGrid() {
   var grid = document.getElementById('grid');
   var seatMap = {};
-  DATA.seats.forEach(function(s) { seatMap[s.row + ',' + s.col] = s; });
-
+  LOCAL_DATA.seats.forEach(function(s) { seatMap[s.row + ',' + s.col] = s; });
   var roomOrigin = {};
   var covered = {};
-  DATA.rooms.forEach(function(r) {
+  LOCAL_DATA.rooms.forEach(function(r) {
     roomOrigin[r.min_row + ',' + r.min_col] = r;
     for (var rr = r.min_row; rr <= r.max_row; rr++) {
       for (var cc = r.min_col; cc <= r.max_col; cc++) {
@@ -356,13 +501,11 @@ function getRoomColor(name) {
       }
     }
   });
-
   for (var row = 1; row <= 76; row++) {
     for (var col = 1; col <= 27; col++) {
       var key = row + ',' + col;
       var d = document.createElement('div');
       d.className = 'cell';
-
       var origin = roomOrigin[key];
       if (origin) {
         d.className += ' room';
@@ -384,7 +527,6 @@ function getRoomColor(name) {
         grid.appendChild(d);
         continue;
       }
-
       var seat = seatMap[key];
       if (seat) {
         var dept = seat.person ? seat.person.department : null;
@@ -412,21 +554,20 @@ function getRoomColor(name) {
         grid.appendChild(d);
         continue;
       }
-
       d.className += ' empty';
       d.style.gridRow = row;
       d.style.gridColumn = col;
       grid.appendChild(d);
     }
   }
-})();
+}
 
 function showModal(seat) {
   var overlay = document.getElementById('modal-overlay');
   var body = document.getElementById('modal-body');
   document.getElementById('modal-title').textContent = 'Puesto #' + seat.seat_no;
-  var h = '';
   var p = seat.person;
+  var h = '';
   if (p && p.name) {
     var dept = p.department || 'Sin departamento';
     var dc = getDeptColor(p.department);
@@ -435,9 +576,16 @@ function showModal(seat) {
     h += fl('Cargo / T\\u00edtulo', p.title);
     h += fl('Brigadista', seat.brigadista || (p ? p.brigadista : ''));
     h += fl('Notas de Salud', p.notas);
+    h += '<div class="modal-actions">';
+    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button>';
+    h += '<button class="btn btn-danger" onclick="confirmUnassign(\\'' + seat.seat_no + '\\')">Desasignar</button>';
+    h += '</div>';
   } else {
     h += fl('Estado', 'Sin asignar', '<span style="color:#aaa;font-style:italic">Puesto vac\\u00edo</span>');
     if (seat.brigadista) h += fl('Brigadista', seat.brigadista);
+    h += '<div class="modal-actions">';
+    h += '<button class="btn btn-primary" onclick="startAssign(\\'' + seat.seat_no + '\\')">Asignar Persona</button>';
+    h += '</div>';
   }
   h += fl('Puesto', seat.seat_no);
   h += fl('Ubicaci\\u00f3n', 'Fila ' + seat.row + ', Columna ' + seat.col);
@@ -469,62 +617,290 @@ function moveTooltip(e) {
 }
 function hideTooltip() { document.getElementById('tooltip').classList.remove('visible'); }
 
-var sel = document.getElementById('filter-dept');
-DATA.departments.forEach(function(d) {
-  var o = document.createElement('option');
-  o.value = d; o.textContent = d;
-  sel.appendChild(o);
-});
+function startAssign(seatNo) {
+  document.getElementById('modal-overlay').classList.remove('active');
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Asignar Puesto #' + seatNo;
+  var h = '<div class="field"><div class="field-label">Seleccionar Persona</div>';
+  h += '<div class="autocomplete-wrap">';
+  h += '<input type="text" class="autocomplete-input" id="ac-input" placeholder="Escriba nombre para buscar..." autocomplete="off">';
+  h += '<div class="autocomplete-list" id="ac-list"></div>';
+  h += '</div></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>';
+  h += '<button class="btn btn-primary" id="btn-save-assign" disabled onclick="saveAssign(\\'' + seatNo + '\\')">Guardar</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  setupAutocomplete(seatNo, false);
+}
 
-var leg = document.getElementById('legend');
-var lh = '<span style="font-weight:600;color:#555">Departamentos:</span>';
-DATA.departments.forEach(function(d) {
-  lh += '<span class="item"><span class="swatch" style="background:' + getDeptColor(d) + '"></span>' + d + '</span>';
-});
-lh += '<span class="item"><span class="swatch" style="background:#e0e0e0"></span>Sin asignar</span>';
-leg.innerHTML = lh;
+function startReassign(seatNo) {
+  document.getElementById('modal-overlay').classList.remove('active');
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Reasignar Puesto #' + seatNo;
+  var h = '<div class="field"><div class="field-label">Nueva Persona</div>';
+  h += '<div class="autocomplete-wrap">';
+  h += '<input type="text" class="autocomplete-input" id="ac-input" placeholder="Escriba nombre para buscar..." autocomplete="off">';
+  h += '<div class="autocomplete-list" id="ac-list"></div>';
+  h += '</div></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>';
+  h += '<button class="btn btn-primary" id="btn-save-assign" disabled onclick="saveAssign(\\'' + seatNo + '\\')">Guardar</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  setupAutocomplete(seatNo, true);
+}
+
+var selectedPerson = null;
+
+function setupAutocomplete(seatNo, isReassign) {
+  selectedPerson = null;
+  var input = document.getElementById('ac-input');
+  var list = document.getElementById('ac-list');
+  var btn = document.getElementById('btn-save-assign');
+  input.focus();
+
+  function renderList(filter) {
+    var html = '';
+    var people = LOCAL_DATA.people_directory || [];
+    var count = 0;
+    for (var i = 0; i < people.length && count < 30; i++) {
+      var p = people[i];
+      if (filter && p.name.toLowerCase().indexOf(filter.toLowerCase()) < 0) continue;
+      var dept = p.department || '';
+      html += '<div class="autocomplete-item" data-name="' + p.name.replace(/"/g, '&quot;') + '">';
+      html += p.name;
+      if (dept) html += '<span class="ac-dept">' + dept + '</span>';
+      html += '</div>';
+      count++;
+    }
+    if (count === 0) html = '<div class="autocomplete-item" style="color:#999">No se encontraron resultados</div>';
+    list.innerHTML = html;
+    list.classList.add('open');
+
+    var items = list.querySelectorAll('.autocomplete-item[data-name]');
+    items.forEach(function(item) {
+      item.addEventListener('click', function() {
+        selectedPerson = this.getAttribute('data-name');
+        input.value = selectedPerson;
+        list.classList.remove('open');
+        btn.disabled = false;
+        items.forEach(function(i2) { i2.classList.remove('selected'); });
+        this.classList.add('selected');
+      });
+    });
+  }
+
+  input.addEventListener('input', function() {
+    selectedPerson = null;
+    btn.disabled = true;
+    renderList(this.value);
+  });
+  input.addEventListener('focus', function() { renderList(this.value); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-wrap')) list.classList.remove('open');
+  });
+}
+
+function saveAssign(seatNo) {
+  if (!selectedPerson) return;
+  var seat = getSeatByNo(seatNo);
+  if (!seat) return;
+  var brig = seat.brigadista;
+  seat.person = {
+    name: selectedPerson,
+    brigadista: brig,
+    notas: null,
+    department: null,
+    title: null
+  };
+  var pd = LOCAL_DATA.people_directory || [];
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name === selectedPerson) {
+      seat.person.department = pd[i].department;
+      seat.person.title = pd[i].title;
+      break;
+    }
+  }
+  hasChanges = true;
+  closeModal();
+  refreshGrid();
+  toast('Puesto #' + seatNo + ' asignado a ' + selectedPerson, 'success');
+  autoSave();
+}
+
+function confirmUnassign(seatNo) {
+  var seat = getSeatByNo(seatNo);
+  if (!seat || !seat.person) return;
+  var name = seat.person.name;
+  document.getElementById('modal-overlay').classList.remove('active');
+  document.getElementById('confirm-title').textContent = 'Desasignar Puesto #' + seatNo;
+  document.getElementById('confirm-msg').textContent = 'Remover a ' + name + ' del puesto #' + seatNo + '?';
+  document.getElementById('confirm-overlay').classList.add('active');
+  document.getElementById('confirm-ok').onclick = function() {
+    doUnassign(seatNo);
+    document.getElementById('confirm-overlay').classList.remove('active');
+  };
+  document.getElementById('confirm-cancel').onclick = function() {
+    document.getElementById('confirm-overlay').classList.remove('active');
+  };
+}
+
+function doUnassign(seatNo) {
+  var seat = getSeatByNo(seatNo);
+  if (!seat) return;
+  seat.person = null;
+  hasChanges = true;
+  refreshGrid();
+  toast('Puesto #' + seatNo + ' desasignado', 'info');
+  autoSave();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+
+var saveTimeout = null;
+function autoSave() {
+  if (!isSharePoint) return;
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(function() { saveToSharePoint(); }, 2000);
+}
+
+function saveToSharePoint() {
+  if (!isSharePoint) return;
+  LOCAL_DATA.timestamp = new Date().toISOString();
+  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
+  var digest = document.querySelector('#__REQUESTDIGEST');
+  var digestVal = digest ? digest.value : '';
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-RequestDigest': digestVal,
+      'Content-Type': 'application/json',
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'MERGE'
+    },
+    body: JSON.stringify(LOCAL_DATA)
+  }).then(function(r) {
+    if (r.ok) {
+      toast('Cambios guardados en SharePoint', 'success');
+      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date().toLocaleString('es-PA');
+    } else {
+      toast('Error al guardar en SharePoint', 'error');
+    }
+  }).catch(function() {
+    toast('Error de conexion con SharePoint', 'error');
+  });
+}
+
+function loadFromSharePoint() {
+  if (!isSharePoint) return;
+  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    LOCAL_DATA = data;
+    refreshGrid();
+    if (data.timestamp) {
+      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date(data.timestamp).toLocaleString('es-PA');
+    }
+    toast('Datos cargados desde SharePoint', 'success');
+  }).catch(function() {
+    toast('No se pudo conectar a SharePoint, usando datos locales', 'info');
+  });
+}
+
+function updateCounter() {
+  var total = LOCAL_DATA.seats.length;
+  var occupied = 0;
+  LOCAL_DATA.seats.forEach(function(s) { if (s.person) occupied++; });
+  var visible = document.querySelectorAll('.cell.seat:not(.dimmed)').length;
+  document.getElementById('counter').textContent = visible + ' de ' + total + ' | Ocupados: ' + occupied + ' | Vac\\u00edos: ' + (total - occupied);
+}
 
 function applyFilters() {
   var seats = document.querySelectorAll('.cell.seat');
-  var visible = 0;
-  var filter = document.getElementById('filter-dept').value;
+  var filterDept = document.getElementById('filter-dept').value;
+  var filterBrig = document.getElementById('filter-brig').value;
   var search = document.getElementById('search').value.toLowerCase();
   seats.forEach(function(d) {
-    var dept = d.querySelector('.person-dot') ? '' : '';
     var seatNo = d.querySelector('.seat-label').textContent;
+    var s = getSeatByNo(seatNo);
     var show = true;
-    if (filter !== 'all') {
-      var s = null;
-      DATA.seats.forEach(function(x) { if (x.seat_no === seatNo) s = x; });
-      if (s && s.person && s.person.department !== filter) show = false;
-      if (s && !s.person && filter !== 'all') show = false;
+    if (filterDept !== 'all') {
+      if (s && s.person && s.person.department !== filterDept) show = false;
+      if (s && !s.person) show = false;
+    }
+    if (filterBrig !== 'all') {
+      if (s && s.brigadista !== filterBrig) show = false;
     }
     if (search) {
-      var s2 = null;
-      DATA.seats.forEach(function(x) { if (x.seat_no === seatNo) s2 = x; });
-      if (s2 && s2.person && s2.person.name && s2.person.name.toLowerCase().indexOf(search) >= 0) {}
-      else if (s2 && s2.brigadista && s2.brigadista.toLowerCase().indexOf(search) >= 0) {}
-      else show = false;
+      var found = false;
+      if (s && s.person && s.person.name && s.person.name.toLowerCase().indexOf(search) >= 0) found = true;
+      if (s && s.person && s.person.department && s.person.department.toLowerCase().indexOf(search) >= 0) found = true;
+      if (s && s.brigadista && s.brigadista.toLowerCase().indexOf(search) >= 0) found = true;
+      if (!found) show = false;
     }
-    if (show) { d.classList.remove('dimmed'); visible++; }
+    if (show) d.classList.remove('dimmed');
     else d.classList.add('dimmed');
   });
-  document.getElementById('counter').textContent = 'Mostrando ' + visible + ' de ' + DATA.total_seats + ' puestos';
+  updateCounter();
 }
 
-document.getElementById('filter-dept').addEventListener('change', applyFilters);
-document.getElementById('search').addEventListener('input', applyFilters);
-document.getElementById('modal-close').addEventListener('click', function() {
-  document.getElementById('modal-overlay').classList.remove('active');
-});
-document.getElementById('modal-overlay').addEventListener('click', function(e) {
-  if (e.target === e.currentTarget) e.currentTarget.classList.remove('active');
-});
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') document.getElementById('modal-overlay').classList.remove('active');
-});
+function initFilters() {
+  var selDept = document.getElementById('filter-dept');
+  LOCAL_DATA.departments.forEach(function(d) {
+    var o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    selDept.appendChild(o);
+  });
+  var selBrig = document.getElementById('filter-brig');
+  var brigadistas = LOCAL_DATA.brigadistas || [];
+  brigadistas.forEach(function(b) {
+    var o = document.createElement('option');
+    o.value = b; o.textContent = b;
+    selBrig.appendChild(o);
+  });
+  selDept.addEventListener('change', applyFilters);
+  selBrig.addEventListener('change', applyFilters);
+  document.getElementById('search').addEventListener('input', applyFilters);
+}
 
-applyFilters();
+function initLegend() {
+  var leg = document.getElementById('legend');
+  var lh = '<span style="font-weight:600;color:#555">Departamentos:</span>';
+  LOCAL_DATA.departments.forEach(function(d) {
+    lh += '<span class="item"><span class="swatch" style="background:' + getDeptColor(d) + '"></span>' + d + '</span>';
+  });
+  lh += '<span class="item"><span class="swatch" style="background:#e0e0e0"></span>Sin asignar</span>';
+  leg.innerHTML = lh;
+}
+
+function initModalClose() {
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeModal();
+      document.getElementById('confirm-overlay').classList.remove('active');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  buildGrid();
+  initFilters();
+  initLegend();
+  initModalClose();
+  updateCounter();
+  if (isSharePoint) {
+    document.getElementById('sp-status').classList.add('connected');
+    loadFromSharePoint();
+  }
+});
 </script>
 </body>
 </html>'''
@@ -555,12 +931,19 @@ def main():
         if s["person"] and s["person"]["department"]:
             departments.add(s["person"]["department"])
 
+    people_directory = build_people_directory(seats_with_people, people)
+    brigadistas = build_brigadistas(seats_with_people)
+    timestamp = datetime.now().isoformat()
+
     output = {
         "rooms": room_cells,
         "seats": seats_with_people,
         "departments": sorted(departments),
+        "brigadistas": brigadistas,
+        "people_directory": people_directory,
         "total_seats": len(seats_with_people),
         "occupied_seats": occupied,
+        "timestamp": timestamp,
     }
 
     with open(JSON_PATH, "w", encoding="utf-8") as f:
@@ -572,6 +955,9 @@ def main():
     with open(HTML_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")
+    print(f"Timestamp: {timestamp}")
+    print(f"Personas en directorio: {len(people_directory)}")
+    print(f"Brigadistas: {len(brigadistas)}")
 
 
 if __name__ == "__main__":

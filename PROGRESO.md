@@ -1,98 +1,113 @@
 # SORTIS - Mapa Interactivo de Oficina Piso 7
 
 ## Objetivo
-Crear una app web interactiva (HTML/JS autocontenido) que muestre el mapa de oficina de SORTIS Piso 7, mostrando info de la persona en cada puesto al hacer click.
+Crear una app web interactiva (HTML/JS autocontenido) que muestre el mapa de oficina de SORTIS Piso 7, mostrando info de la persona en cada puesto al hacer click. Los managers pueden editar asignaciones desde la app.
 
 ## GitHub
 https://github.com/david-arjona-a360/Sortis
 
 ## Archivos Fuente
 - **Excel**: `C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx`
-- **PDF** (analizado, NO se usa como base): `A02_DISTRIBUCIÓN_OSO (2).pdf` — es un plano estructural sin datos de puestos
+- **PDF** (analizado, NO se usa): `A02_DISTRIBUCIÓN_OSO (2).pdf`
+
+## Arquitectura
+
+### Modo Local (sin SharePoint)
+- `generar_mapa.py` lee Excel → genera JSON + HTML con datos embebidos
+- HTML funciona con `file://` o cualquier servidor estatico
+
+### Modo SharePoint (produccion)
+- HTML se incrusta en SharePoint Site Page via Embed web part
+- `data.json` se almacena en SharePoint Document Library
+- HTML lee/escribe via SharePoint REST API (cookie auth, sin Azure AD)
+- Cambios de managers se reflejan instantaneamente
+- SharePoint maneja version history automaticamente
+
+### Para activar SharePoint
+En `floor_plan.html`, cambiar:
+```javascript
+var SHAREPOINT_SITE = '';  // → var SHAREPOINT_SITE = '/sites/YOURSITE/';
+var DATA_FILE_PATH = '/sites/YOURSITE/Shared Documents/FloorPlan/data.json';
+```
 
 ## Estructura del Excel
 
 ### Hoja "Floor plan" (76 filas x 27 columnas, A-AA)
-Grid visual de la oficina. Celdas combinadas = áreas/habitaciones. Celdas individuales = puestos numerados 1-167.
+Grid visual de la oficina. Celdas combinadas = areas/habitaciones. Celdas individuales = puestos numerados 1-167.
 
-**Áreas (celdas combinadas):**
-| Celda | Área |
-|-------|------|
-| A1:B6 | COMEDOR |
-| Y1:Y6 | ARCHIVE |
-| Z1:Z6 | CUARTO DE IT |
-| A7:A11 | BAÑO DE MUJERES |
-| C7:C11 | LOCKERS |
-| D7 | Puesto 167 |
-| E7:H8 | SALA DE ENTRENAMIENTO |
-| O7:P11 | SALA DE REUNIONES |
-| K8:N11 | RECEPCION |
-| R8:U11 | CUARTO ELECTRICO |
-| W8:X11 | CUARTO DE A/C |
-| Y7:Z9 | OFICINA DE IT |
-| Y10:Z11 | DEPOSITO IT |
-| A12:A14 | BAÑO DE HOMBRES |
-| Y13:Z13 | WAR ROOM |
-| A15:A16 | CUARTO A/C |
-| A17:A19 | SALA DE REUNIONES |
-| A20:A22 | OFICINA GERENCIA 01 |
-| Y21:Z22 | OFICINA GERENCIA 04 |
-| A23:A25 | OFICINA GERENCIA 02 |
-| Y23:Z25 | OFICINA DE GERENCIA 05 |
-| A26:G30 | OFICINA DE GERENCIA 03 |
-| H26:J30 | HR162 / 166 |
-| L26:N30 | Supervisor 163 |
-| O26:Q30 | Supervisor 164 |
-| S26:U30 | Supervisor 165 |
-| V26:Z30 | OFICINA DE GERENCIA 06 |
+**Areas principales:**
+COMEDOR, RECEPCION, SALA DE REUNIONES, SALA DE ENTRENAMIENTO, OFICINA DE IT, OFICINA GERENCIA 01-06, CUARTO DE IT, ARCHIVE, WAR ROOM, BAÑOS, LOCKERS, CUARTO A/C, CUARTO ELECTRICO, HR162, Supervisors 163-165
 
-**Posiciones de puestos en el grid:**
-- Columnas F, I, L, O, R, U están vacías (pasillos/muros)
-- Filas 13-17: Puestos 1-70
-- Filas 20-24: Puestos 71-140
-- Columnas Y-Z filas 14-20: Puestos 141-151 (IT)
-- Columnas D-H filas 9-10: Puestos 152-161 (Training room)
-- D7: Puesto 167
-
-### Hoja "Seats Allocation" (176 filas de datos)
+### Hoja "Seats Allocation" (176 filas)
 Columnas: A=Seat No., B=Name, C=Brigadista, D=Notas-Salud
-- El Seat No. coincide con el número en el grid del Floor plan
-- Ejemplos: Seat "1" → Brig=Ricardo Gutiérrez; Seat "41" → Name=Lizmarie Tejeira, Brig=Amir Abad
 
 ### Hoja "Sheet1" (47 filas)
 Columnas: A=Name, B=Department, C=Title
-- Departments: Finance, IT, ENS, Title, IBC, CaseAware, VS360
-- Se une con Seats Allocation por nombre
+Departments: Finance, IT, ENS, Title, IBC, CaseAware, VS360, Firm Solutions
 
 ### Hoja "Brigadistas" (13 filas)
 Columnas: A=Seat No, B=Nombre, C=Departamento
 
-## Decisiones Tomadas
-1. **Base visual**: Grid del Excel (no el PDF) — el PDF es plano estructural sin datos de puestos
-2. **Layout**: CSS Grid 27x76 que replica el Excel exactamente
-3. **Interacción**: Click → modal con info; Hover → tooltip rápido
-4. **Filtros**: Dropdown por departamento + búsqueda por nombre + contador
-5. **Colores por departamento**: Finance=verde, IT=azul, ENS=naranja, Title=púrpura, IBC=amarillo, CaseAware=rosa, VS360=teal, Vacío=gris
-6. **Despliegue**: HTML en OneDrive → shortcut en SharePoint
+## Funcionalidades
+
+### Visualizacion
+- CSS Grid 27x76 replica el layout del Excel
+- Colores por departamento
+- Tooltip al hover con nombre + departamento
+- Modal al click con info completa
+- Filtro por departamento, brigadista y busqueda por nombre
+- Contador: puestos mostrados / ocupados / vacios
+
+### Edicion (SharePoint mode)
+- Click en puesto vacio → dropdown con autocomplete para asignar persona
+- Click en puesto ocupado → info + botones "Reasignar" y "Desasignar"
+- Confirmacion antes de desasignar
+- Auto-guardado cada 2 segundos despues de un cambio
+- Toast notifications para feedback
+- Timestamp de ultima actualizacion visible
+
+### SharePoint Integration
+- Lee data.json via REST API al cargar
+- Escribe data.json via REST API al guardar
+- Indicador "Conectado a SharePoint" en topbar
+- Fallback a datos locales si SharePoint no esta disponible
+- Usa cookie auth (sin Azure AD app registration)
 
 ## Datos Mostrados por Puesto
 | Campo | Fuente |
 |-------|--------|
 | Nombre | Seats Allocation → col B |
 | Departamento | Sheet1 → col B |
-| Puesto/Título | Sheet1 → col C |
+| Puesto/Titulo | Sheet1 → col C |
 | Brigadista | Seats Allocation → col C |
 | Notas | Seats Allocation → col D |
 
-## Archivos a Crear
-1. `generar_mapa.py` — Lee Excel con openpyxl, genera `floor_plan_data.json`
-2. `floor_plan.html` — HTML autocontenido con JSON embebido, mapa interactivo
-3. `floor_plan_data.json` — Datos generados (intermedio)
+## Archivos
+| Archivo | Descripcion |
+|---------|-------------|
+| `generar_mapa.py` | Lee Excel, genera JSON + HTML |
+| `floor_plan.html` | Mapa interactivo autocontenido |
+| `.gitignore` | Excluye JSON, xlsx, cache |
+| `PROGRESO.md` | Este documento |
+
+## Datos Generados (en JSON)
+- rooms: array de areas/habitaciones con posiciones
+- seats: array de puestos con personas asignadas
+- departments: lista de departamentos unicos
+- brigadistas: lista de brigadistas unicos
+- people_directory: directorio de todas las personas (nombre, dept, titulo)
+- total_seats: total de puestos
+- occupied_seats: puestos ocupados
+- timestamp: fecha/hora de ultima generacion
 
 ## Estado
-- [x] Análisis completo del Excel (4 hojas, celdas combinadas, colores, posiciones)
-- [x] Análisis del PDF (concluido: plano estructural, no usable)
-- [x] Plan final aprobado
-- [ ] Crear `generar_mapa.py`
-- [ ] Crear `floor_plan.html`
-- [ ] Ejecutar y verificar
+- [x] Analisis completo del Excel (4 hojas, celdas combinadas, colores, posiciones)
+- [x] Analisis del PDF (concluido: plano estructural, no usable)
+- [x] Plan original aprobado y ejecutado
+- [x] generar_mapa.py con people_directory, timestamp, brigadistas
+- [x] floor_plan.html con edicion, SharePoint REST API, brigadista filter
+- [x] .gitignore actualizado
+- [ ] Configurar SharePoint Site Page + Document Library
+- [ ] Subir data.json a SharePoint
+- [ ] Configurar SHAREPOINT_SITE en el HTML
+- [ ] Probar en SharePoint con managers

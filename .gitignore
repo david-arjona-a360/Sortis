@@ -1,1 +1,6 @@
 check.txt
+floor_plan_data.json
+*.xlsx
+__pycache__/
+.env
+*.pyc

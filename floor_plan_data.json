@@ -19284,6 +19284,13 @@
       "max_col": 7
     },
     {
+      "name": "OFICINA DE GERENCIA 06",
+      "min_row": 26,
+      "min_col": 22,
+      "max_row": 30,
+      "max_col": 26
+    },
+    {
       "name": "LOCKERS",
       "min_row": 7,
       "min_col": 3,
@@ -19296,13 +19303,6 @@
       "min_col": 15,
       "max_row": 30,
       "max_col": 17
-    },
-    {
-      "name": "DEPOSITO IT",
-      "min_row": 10,
-      "min_col": 25,
-      "max_row": 11,
-      "max_col": 26
     },
     {
       "name": "Supervisor 163",
@@ -19396,13 +19396,6 @@
       "max_col": 21
     },
     {
-      "name": "CUARTO DE IT",
-      "min_row": 1,
-      "min_col": 26,
-      "max_row": 6,
-      "max_col": 26
-    },
-    {
       "name": "HR162 / 166",
       "min_row": 26,
       "min_col": 8,
@@ -19410,10 +19403,17 @@
       "max_col": 10
     },
     {
-      "name": "OFICINA DE GERENCIA 06",
-      "min_row": 26,
-      "min_col": 22,
-      "max_row": 30,
+      "name": "CUARTO DE IT",
+      "min_row": 1,
+      "min_col": 26,
+      "max_row": 6,
+      "max_col": 26
+    },
+    {
+      "name": "DEPOSITO IT",
+      "min_row": 10,
+      "min_col": 25,
+      "max_row": 11,
       "max_col": 26
     }
   ],
@@ -19522,7 +19522,7 @@
       "person": {
         "name": "Abdiel Rodriguez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19535,7 +19535,7 @@
       "person": {
         "name": "Francisco Sanchez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19548,7 +19548,7 @@
       "person": {
         "name": "Milagros Ferreira",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "Finance",
         "title": "LOGS F&A - Banks Recs"
       },
@@ -19561,7 +19561,7 @@
       "person": {
         "name": "Carolina Lopez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19574,7 +19574,7 @@
       "person": {
         "name": "Richard Rubio",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19587,7 +19587,7 @@
       "person": {
         "name": "Christopher Vargas",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19600,7 +19600,7 @@
       "person": {
         "name": "Lizmarie Tejeira",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19613,7 +19613,7 @@
       "person": {
         "name": "Kate Aizprua",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19626,7 +19626,7 @@
       "person": {
         "name": "Eduardo Lore",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19639,7 +19639,7 @@
       "person": {
         "name": "Daniel Arosemena",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19652,7 +19652,7 @@
       "person": {
         "name": "Mario Fernandez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "Finance",
         "title": "A360 F&A - Banks Recs"
       },
@@ -19665,7 +19665,7 @@
       "person": {
         "name": "Samyleth Urieta",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19711,7 +19711,7 @@
       "person": {
         "name": "Naryeth Vega",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19724,7 +19724,7 @@
       "person": {
         "name": "Enith London",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19737,7 +19737,7 @@
       "person": {
         "name": "Nayeilis Perez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19750,7 +19750,7 @@
       "person": {
         "name": "Eymis Sanjur",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19763,7 +19763,7 @@
       "person": {
         "name": "Gianfranco Succari",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19776,7 +19776,7 @@
       "person": {
         "name": "Andrea Moreno",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19789,7 +19789,7 @@
       "person": {
         "name": "David Ramos",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19802,7 +19802,7 @@
       "person": {
         "name": "Nicole Knight",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19815,7 +19815,7 @@
       "person": {
         "name": "Christian Guillen",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19828,7 +19828,7 @@
       "person": {
         "name": "Adrian Marquez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19841,7 +19841,7 @@
       "person": {
         "name": "Ismael Fernandez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "Finance",
         "title": "LOGS F&A - Banks Recs Team Lead"
       },
@@ -19854,7 +19854,7 @@
       "person": {
         "name": "Gini Perez",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "IBC",
         "title": "Executive Reporting - Production Supervisor"
       },
@@ -19867,7 +19867,7 @@
       "person": {
         "name": "Ramon Sasso",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19900,7 +19900,7 @@
       "person": {
         "name": "Yahir Gonzalez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19913,7 +19913,7 @@
       "person": {
         "name": "Antonio Bech",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19926,7 +19926,7 @@
       "person": {
         "name": "Vianeth Arosemena",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19939,7 +19939,7 @@
       "person": {
         "name": "Moises Brea",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19952,7 +19952,7 @@
       "person": {
         "name": "Omar Caceres",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19965,7 +19965,7 @@
       "person": {
         "name": "Jeana London",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19978,7 +19978,7 @@
       "person": {
         "name": "Josip Valencia",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -19991,7 +19991,7 @@
       "person": {
         "name": "Nathalie Quinero",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20011,7 +20011,7 @@
       "person": {
         "name": "Eligio Ramirez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20031,7 +20031,7 @@
       "person": {
         "name": "Gina Perez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "Finance",
         "title": "LOGS F&A - Banks Recs"
       },
@@ -20070,7 +20070,7 @@
       "person": {
         "name": "Melanie Ortiz",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20083,7 +20083,7 @@
       "person": {
         "name": "Dennis Zhong",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20096,7 +20096,7 @@
       "person": {
         "name": "Diego Almanza",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20109,7 +20109,7 @@
       "person": {
         "name": "Aris Jimenez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20122,7 +20122,7 @@
       "person": {
         "name": "Emily Alvarez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20135,7 +20135,7 @@
       "person": {
         "name": "Alessandra Flores",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20148,7 +20148,7 @@
       "person": {
         "name": "Melissa Cortes",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20161,7 +20161,7 @@
       "person": {
         "name": "Devon Garcia",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20181,7 +20181,7 @@
       "person": {
         "name": "Juan Rodriguez",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20194,7 +20194,7 @@
       "person": {
         "name": "Julio Dixon",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20207,7 +20207,7 @@
       "person": {
         "name": "David Villaverde",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "Finance",
         "title": "LOGS F&A - Banks Recs"
       },
@@ -20220,7 +20220,7 @@
       "person": {
         "name": "Luis Guevara",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20233,7 +20233,7 @@
       "person": {
         "name": "Amir Abad",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20272,7 +20272,7 @@
       "person": {
         "name": "Miguel Gracia",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20285,7 +20285,7 @@
       "person": {
         "name": "Daniel Rodriguez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20298,7 +20298,7 @@
       "person": {
         "name": "Carlos Quiel",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20311,7 +20311,7 @@
       "person": {
         "name": "Katherine Fernandez",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20324,7 +20324,7 @@
       "person": {
         "name": "Ana Ramos",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20337,7 +20337,7 @@
       "person": {
         "name": "Carla Escartin",
         "brigadista": "Milagros Ferreira",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20350,7 +20350,7 @@
       "person": {
         "name": "Abigail Fabrega",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20363,7 +20363,7 @@
       "person": {
         "name": "Cleyder Barnett",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20390,7 +20390,7 @@
       "person": {
         "name": "Rachell Ripamonte",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "CaseAware",
         "title": "Document Analyst"
       },
@@ -20403,7 +20403,7 @@
       "person": {
         "name": "Ian Prado",
         "brigadista": "Josip Valencia",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20416,7 +20416,7 @@
       "person": {
         "name": "Ricardo McKinnon",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20429,7 +20429,7 @@
       "person": {
         "name": "Isaac Wells",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20442,7 +20442,7 @@
       "person": {
         "name": "Alexander Perez",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20455,7 +20455,7 @@
       "person": {
         "name": "Ana Lopez",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "IT",
         "title": "Info Sec"
       },
@@ -20468,7 +20468,7 @@
       "person": {
         "name": "Gabriel Solano",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20586,7 +20586,7 @@
       "person": {
         "name": "Alba Carias",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20599,7 +20599,7 @@
       "person": {
         "name": "Javier George",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20612,7 +20612,7 @@
       "person": {
         "name": "Rigoberto Ortega",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20632,7 +20632,7 @@
       "person": {
         "name": "Zaneth Hernandez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20645,7 +20645,7 @@
       "person": {
         "name": "Carol Campos",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": "VS360",
         "title": "Vendor Management"
       },
@@ -20658,7 +20658,7 @@
       "person": {
         "name": "Edgardo Garcia",
         "brigadista": "Amir Abad",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20775,7 +20775,7 @@
       "person": {
         "name": "Monica Serrano",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20788,7 +20788,7 @@
       "person": {
         "name": "Carlos Ruiz",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20801,7 +20801,7 @@
       "person": {
         "name": "Paolo Guelfi",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20814,7 +20814,7 @@
       "person": {
         "name": "Jaffeth Murray",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20827,7 +20827,7 @@
       "person": {
         "name": "Barbara Tellez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20840,7 +20840,7 @@
       "person": {
         "name": "Joelyz Zarzavilla",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20957,7 +20957,7 @@
       "person": {
         "name": "Roxana Robayana",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20970,7 +20970,7 @@
       "person": {
         "name": "Jose Jimenez",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20983,7 +20983,7 @@
       "person": {
         "name": "Marjorie Rangel",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -20996,7 +20996,7 @@
       "person": {
         "name": "Diomedes Cordoba",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21009,7 +21009,7 @@
       "person": {
         "name": "Zoe Valdez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21022,7 +21022,7 @@
       "person": {
         "name": "Ameth Gonzalez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21133,7 +21133,7 @@
       "person": {
         "name": "Ameli Peralta",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21146,7 +21146,7 @@
       "person": {
         "name": "GianLuca Monterverde",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21159,7 +21159,7 @@
       "person": {
         "name": "Gilberto Sanchez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21179,7 +21179,7 @@
       "person": {
         "name": "Rosendo Leveane / Tatiana Giron",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21192,7 +21192,7 @@
       "person": {
         "name": "Davis Almanza",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21303,7 +21303,7 @@
       "person": {
         "name": "Lesther Almanza",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21316,7 +21316,7 @@
       "person": {
         "name": "Yheleni Egard",
         "brigadista": "Kyrell Waddell",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21329,7 +21329,7 @@
       "person": {
         "name": "Nathja Lauchu",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21342,7 +21342,7 @@
       "person": {
         "name": "Sol Mojica",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21355,7 +21355,7 @@
       "person": {
         "name": "Aimar Gonzalez",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },
@@ -21368,7 +21368,7 @@
       "person": {
         "name": "Anita Navarro",
         "brigadista": "Aris Jiménez",
-        "notas": "Actualizado",
+        "notas": null,
         "department": null,
         "title": null
       },

@@ -10,7 +10,9 @@ import os
 import openpyxl
 
 EXCEL_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx"
-OUTPUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "floor_plan_data.json")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
+HTML_TEMPLATE = os.path.join(SCRIPT_DIR, "floor_plan.html")
 
 GRID_ROWS = 76
 GRID_COLS = 27
@@ -214,8 +216,32 @@ def main():
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-    print(f"\nArchivo generado: {OUTPUT_PATH}")
+    print(f"\nArchivo JSON generado: {OUTPUT_PATH}")
     print(f"Tamano: {os.path.getsize(OUTPUT_PATH):,} bytes")
+
+    # Embed JSON into HTML so it works without a web server (file:// URLs)
+    if os.path.exists(HTML_TEMPLATE):
+        with open(HTML_TEMPLATE, "r", encoding="utf-8") as f:
+            html = f.read()
+        fetch_marker = "fetch('floor_plan_data.json')"
+        fetch_pos = html.find(fetch_marker)
+        if fetch_pos >= 0:
+            json_inline = json.dumps(output, ensure_ascii=False)
+            script_end = html.rfind("</script>")
+            new_script = (
+                "const DATA = " + json_inline + ";\n"
+                "init(DATA);\n"
+                "</script>"
+            )
+            new_html = html[:fetch_pos] + new_script + html[script_end + len("</script>"):]
+            with open(HTML_TEMPLATE, "w", encoding="utf-8") as f:
+                f.write(new_html)
+            print(f"HTML actualizado con datos embebidos: {HTML_TEMPLATE}")
+            print(f"Tamano HTML: {os.path.getsize(HTML_TEMPLATE):,} bytes")
+        else:
+            print("No se encontro bloque fetch en el HTML, saltando embebido.")
+    else:
+        print(f"Advertencia: {HTML_TEMPLATE} no encontrado, saltando embebido.")
 
 
 if __name__ == "__main__":

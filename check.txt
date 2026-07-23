@@ -1,0 +1,4 @@
+ROOM_COLORS = {
+  COMEDOR: '#a5d6a7', ARCHIVE: '#bcaaa4', 'CUARTO DE IT': '#81d4fa',
+  'BA\u00d1O DE MUJERES': '#bdbdbd', 'BA\u00d1O DE HOMBRES': '#bdbdbd',
+  LOCKERS: '#cfd8dc', 'SALA DE ENTRENAMIENT

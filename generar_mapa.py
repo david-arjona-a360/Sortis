@@ -11,8 +11,8 @@ import os
 from datetime import datetime
 import openpyxl
 
-EXCEL_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
 

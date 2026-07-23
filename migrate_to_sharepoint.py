@@ -21,7 +21,7 @@ import openpyxl
 # ============================================================
 # CONFIGURATION - UPDATE THESE VALUES
 # ============================================================
-EXCEL_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx"
+EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "SORTIS_FLOOR_PLAN.xlsx")
 SHAREPOINT_SITE = "https://a360inc.sharepoint.com/sites/YOURSITE"  # UPDATE THIS
 
 # Authentication - choose one:

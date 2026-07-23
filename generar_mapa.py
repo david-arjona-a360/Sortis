@@ -87,6 +87,7 @@ def read_seats_allocation(wb):
         name = ws.cell(row, 2).value
         brigadista = ws.cell(row, 3).value
         notas = ws.cell(row, 4).value
+        department = ws.cell(row, 5).value
         seat_key = normalize_seat_no(seat_no_raw)
         if seat_key is None:
             continue
@@ -94,6 +95,7 @@ def read_seats_allocation(wb):
             "name": fix_encoding(str(name).strip()) if name else None,
             "brigadista": fix_encoding(str(brigadista).strip()) if brigadista else None,
             "notas": fix_encoding(str(notas).strip()) if notas else None,
+            "department": fix_encoding(str(department).strip()) if department else None,
         }
     return seats
 
@@ -126,7 +128,7 @@ def join_data(seat_positions, seats_alloc, people):
                 "name": info["name"],
                 "brigadista": info["brigadista"],
                 "notas": info["notas"],
-                "department": p["department"] if p else None,
+                "department": info.get("department") or (p["department"] if p else None),
                 "title": p["title"] if p else None,
             }
         result.append({

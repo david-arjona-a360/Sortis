@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SORTIS - Mapa de Oficina Piso 7</title>
+<style>
+:root {
+  --cell-w: 42px;
+  --cell-h: 26px;
+  --gap: 1px;
+  --dept-finance: #c8e6c9;
+  --dept-it: #bbdefb;
+  --dept-ens: #ffe0b2;
+  --dept-title: #e1bee7;
+  --dept-ibc: #fff9c4;
+  --dept-caseaware: #f8bbd0;
+  --dept-vs360: #b2dfdb;
+  --dept-empty: #e0e0e0;
+  --room-comedor: #a5d6a7;
+  --room-bano: #bdbdbd;
+  --room-lockers: #cfd8dc;
+  --room-training: #90caf9;
+  --room-recepcion: #80cbc4;
+  --room-reunion: #ce93d8;
+  --room-it: #81d4fa;
+  --room-it-dep: #b3e5fc;
+  --room-gerencia: #ffcc80;
+  --room-gerencia3: #ffab91;
+  --room-gerencia6: #ff8a65;
+  --room-cuarto: #b0bec5;
+  --room-war: #ef5350;
+  --room-supervisor: #ffe082;
+  --room-archive: #bcaaa4;
+  --room-hr: #a1887f;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  overflow: hidden;
+  height: 100vh;
+}
+#topbar {
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  color: #fff;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 100;
+  position: relative;
+}
+#topbar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+#topbar .controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+#topbar label {
+  font-size: 12px;
+  opacity: 0.85;
+}
+#topbar select, #topbar input {
+  padding: 5px 10px;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+#topbar select option { color: #333; background: #fff; }
+#topbar input::placeholder { color: rgba(255,255,255,0.6); }
+#topbar input:focus, #topbar select:focus {
+  border-color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.25);
+}
+#counter {
+  font-size: 13px;
+  background: rgba(255,255,255,0.15);
+  padding: 4px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+#legend {
+  background: #fff;
+  padding: 6px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #ddd;
+  font-size: 11px;
+}
+#legend .item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+#legend .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+#grid-container {
+  overflow: auto;
+  flex: 1;
+  height: calc(100vh - 90px);
+  padding: 10px;
+  background: #eee;
+}
+#grid {
+  display: grid;
+  grid-template-columns: repeat(27, var(--cell-w));
+  grid-template-rows: repeat(76, var(--cell-h));
+  gap: var(--gap);
+  width: fit-content;
+  margin: 0 auto;
+}
+.cell {
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.cell.empty {
+  background: transparent;
+  border: none;
+}
+.cell.room {
+  border: 1px solid rgba(0,0,0,0.12);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  color: #333;
+  writing-mode: horizontal-tb;
+  padding: 2px 3px;
+}
+.cell.room.small-room {
+  font-size: 8px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+.cell.seat {
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.1);
+  font-size: 10px;
+  font-weight: 700;
+  color: #333;
+  z-index: 1;
+}
+.cell.seat:hover {
+  transform: scale(1.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+.cell.seat.dimmed {
+  opacity: 0.2;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.cell.seat.highlighted {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 2px #ff6f00, 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+.cell.seat.occupied { border-width: 2px; }
+.cell.seat .seat-label {
+  pointer-events: none;
+  line-height: 1;
+}
+.cell.seat .person-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4caf50;
+  border: 1px solid #fff;
+}
+/* Modal */
+#modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+#modal-overlay.active { display: flex; }
+#modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 420px;
+  width: 90%;
+  overflow: hidden;
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+#modal-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #1a237e, #283593);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#modal-header h2 { font-size: 16px; }
+#modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.8;
+}
+#modal-close:hover { opacity: 1; }
+#modal-body { padding: 20px; }
+#modal-body .field {
+  margin-bottom: 12px;
+}
+#modal-body .field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+#modal-body .field-value {
+  font-size: 14px;
+  color: #222;
+  font-weight: 500;
+}
+#modal-body .field-value.empty {
+  color: #aaa;
+  font-style: italic;
+}
+#modal-body .dept-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+#tooltip {
+  display: none;
+  position: fixed;
+  background: #333;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 500;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+#tooltip.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>SORTIS - Mapa de Oficina Piso 7</h1>
+  <div class="controls">
+    <label>Departamento:</label>
+    <select id="filter-dept">
+      <option value="all">Todos</option>
+    </select>
+    <input type="text" id="search" placeholder="Buscar persona...">
+    <span id="counter">Cargando...</span>
+  </div>
+</div>
+
+<div id="legend"></div>
+
+<div id="grid-container">
+  <div id="grid"></div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-header">
+      <h2 id="modal-title">Detalle del Puesto</h2>
+      <button id="modal-close">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const DEPT_COLORS = {
+  'Finance': 'var(--dept-finance)',
+  'IT': 'var(--dept-it)',
+  'ENS': 'var(--dept-ens)',
+  'Title': 'var(--dept-title)',
+  'IBC': 'var(--dept-ibc)',
+  'CaseAware': 'var(--dept-caseaware)',
+  'VS360': 'var(--dept-vs360)',
+  'Firm Solutions': '#dcedc8',
+};
+const DEPT_COLORS_RAW = {
+  'Finance': '#c8e6c9',
+  'IT': '#bbdefb',
+  'ENS': '#ffe0b2',
+  'Title': '#e1bee7',
+  'IBC': '#fff9c4',
+  'CaseAware': '#f8bbd0',
+  'VS360': '#b2dfdb',
+  'Firm Solutions': '#dcedc8',
+};
+const ROOM_STYLES = {
+  'COMEDOR': { bg: 'var(--room-comedor)', icon: '' },
+  'ARCHIVE': { bg: 'var(--room-archive)', icon: '' },
+  'CUARTO DE IT': { bg: 'var(--room-it)', icon: '' },
+  'BAÑO DE MUJERES': { bg: 'var(--room-bano)', icon: '' },
+  'BAÑO DE HOMBRES': { bg: 'var(--room-bano)', icon: '' },
+  'LOCKERS': { bg: 'var(--room-lockers)', icon: '' },
+  'SALA DE ENTRENAMIENTO': { bg: 'var(--room-training)', icon: '' },
+  'SALA DE REUNIONES': { bg: 'var(--room-reunion)', icon: '' },
+  'RECEPCION': { bg: 'var(--room-recepcion)', icon: '' },
+  'CUARTO ELECTRICO': { bg: 'var(--room-cuarto)', icon: '' },
+  'CUARTO DE A/C': { bg: 'var(--room-cuarto)', icon: '' },
+  'CUARTO A/C': { bg: 'var(--room-cuarto)', icon: '' },
+  'OFICINA DE IT': { bg: 'var(--room-it-dep)', icon: '' },
+  'DEPOSITO IT': { bg: 'var(--room-it-dep)', icon: '' },
+  'WAR ROOM': { bg: 'var(--room-war)', icon: '' },
+  'OFICINA GERENCIA 01': { bg: 'var(--room-gerencia)', icon: '' },
+  'OFICINA GERENCIA 02': { bg: 'var(--room-gerencia)', icon: '' },
+  'OFICINA GERENCIA 04': { bg: 'var(--room-gerencia)', icon: '' },
+  'OFICINA DE GERENCIA 03': { bg: 'var(--room-gerencia3)', icon: '' },
+  'OFICINA DE GERENCIA 05': { bg: 'var(--room-gerencia)', icon: '' },
+  'OFICINA DE GERENCIA 06': { bg: 'var(--room-gerencia6)', icon: '' },
+  'HR162 / 166': { bg: 'var(--room-hr)', icon: '' },
+  'Supervisor 163': { bg: 'var(--room-supervisor)', icon: '' },
+  'Supervisor 164': { bg: 'var(--room-supervisor)', icon: '' },
+  'Supervisor 165': { bg: 'var(--room-supervisor)', icon: '' },
+};
+
+let DATA = null;
+let currentFilter = 'all';
+let currentSearch = '';
+
+function getSeatColor(dept) {
+  if (!dept) return 'var(--dept-empty)';
+  return DEPT_COLORS[dept] || 'var(--dept-empty)';
+}
+function getSeatColorRaw(dept) {
+  if (!dept) return '#e0e0e0';
+  return DEPT_COLORS_RAW[dept] || '#e0e0e0';
+}
+function getRoomStyle(name) {
+  if (!name) return { bg: '#ddd', icon: '' };
+  const trimmed = name.trim();
+  for (const [key, val] of Object.entries(ROOM_STYLES)) {
+    if (trimmed.includes(key)) return val;
+  }
+  return { bg: '#ddd', icon: '' };
+}
+
+function buildSeatMap(data) {
+  const map = {};
+  for (const s of data.seats) {
+    map[s.row + ',' + s.col] = s;
+  }
+  return map;
+}
+
+function buildGrid(data) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const seatMap = buildSeatMap(data);
+  const roomOriginMap = {};
+  for (const r of data.rooms) {
+    roomOriginMap[r.min_row + ',' + r.min_col] = r;
+  }
+  const roomCovered = new Set();
+  for (const r of data.rooms) {
+    for (let rr = r.min_row; rr <= r.max_row; rr++) {
+      for (let cc = r.min_col; cc <= r.max_col; cc++) {
+        if (rr !== r.min_row || cc !== r.min_col) {
+          roomCovered.add(rr + ',' + cc);
+        }
+      }
+    }
+  }
+
+  for (let row = 1; row <= 76; row++) {
+    for (let col = 1; col <= 27; col++) {
+      const key = row + ',' + col;
+      const div = document.createElement('div');
+      div.className = 'cell';
+      div.dataset.row = row;
+      div.dataset.col = col;
+
+      if (roomOriginMap[key]) {
+        const r = roomOriginMap[key];
+        const style = getRoomStyle(r.name);
+        div.className += ' room';
+        div.style.background = style.bg;
+        div.style.gridRow = r.min_row + ' / ' + (r.max_row + 1);
+        div.style.gridColumn = r.min_col + ' / ' + (r.max_col + 1);
+        const spanW = r.max_col - r.min_col + 1;
+        const spanH = r.max_row - r.min_row + 1;
+        if (spanW <= 2 && spanH <= 3) {
+          div.classList.add('small-room');
+        }
+        const displayName = (r.name || '').trim();
+        div.textContent = style.icon ? style.icon + ' ' + displayName : displayName;
+        div.title = displayName;
+        grid.appendChild(div);
+        continue;
+      }
+
+      if (roomCovered.has(key)) {
+        div.className += ' empty';
+        div.style.gridRow = row;
+        div.style.gridColumn = col;
+        grid.appendChild(div);
+        continue;
+      }
+
+      const seat = seatMap[key];
+      if (seat) {
+        const dept = seat.person ? seat.person.department : null;
+        const color = getSeatColor(dept);
+        div.className += ' seat';
+        div.style.background = color;
+        div.style.gridRow = row;
+        div.style.gridColumn = col;
+        div.dataset.seatNo = seat.seat_no;
+        div.dataset.seatKey = key;
+
+        const label = document.createElement('span');
+        label.className = 'seat-label';
+        label.textContent = seat.seat_no;
+        div.appendChild(label);
+
+        if (seat.person) {
+          const dot = document.createElement('span');
+          dot.className = 'person-dot';
+          div.appendChild(dot);
+          div.dataset.personName = seat.person.name || '';
+          div.dataset.personDept = dept || '';
+          div.dataset.personTitle = seat.person.title || '';
+          div.dataset.personBrig = seat.brigadista || '';
+          div.dataset.personNotas = seat.person.notas || '';
+        }
+
+        div.addEventListener('click', () => showModal(seat));
+        div.addEventListener('mouseenter', (e) => showTooltip(e, seat));
+        div.addEventListener('mousemove', (e) => moveTooltip(e));
+        div.addEventListener('mouseleave', hideTooltip);
+
+        grid.appendChild(div);
+        continue;
+      }
+
+      div.className += ' empty';
+      div.style.gridRow = row;
+      div.style.gridColumn = col;
+      grid.appendChild(div);
+    }
+  }
+}
+
+function showModal(seat) {
+  const overlay = document.getElementById('modal-overlay');
+  const body = document.getElementById('modal-body');
+  const title = document.getElementById('modal-title');
+  title.textContent = 'Puesto #' + seat.seat_no;
+
+  let html = '';
+  const person = seat.person;
+  if (person && person.name) {
+    const dept = person.department || 'Sin departamento';
+    const deptColor = getSeatColorRaw(person.department);
+    html += fieldHTML('Nombre', person.name);
+    html += fieldHTML('Departamento', dept, '<span class="dept-badge" style="background:' + deptColor + '">' + dept + '</span>');
+    html += fieldHTML('Cargo / Título', person.title);
+    html += fieldHTML('Brigadista', seat.brigadista || person.brigadista);
+    html += fieldHTML('Notas de Salud', person.notas);
+  } else {
+    html += fieldHTML('Estado', 'Sin asignar', '<span style="color:#aaa;font-style:italic">Puesto vacío</span>');
+    if (seat.brigadista) {
+      html += fieldHTML('Brigadista', seat.brigadista);
+    }
+  }
+  html += fieldHTML('Número de Puesto', seat.seat_no);
+  html += fieldHTML('Ubicación', 'Fila ' + seat.row + ', Columna ' + seat.col);
+  body.innerHTML = html;
+  overlay.classList.add('active');
+}
+
+function fieldHTML(label, value, customValue) {
+  const isEmpty = !value || value === 'null' || value === 'undefined';
+  const displayValue = customValue || (isEmpty ? 'No disponible' : value);
+  const cls = isEmpty ? 'field-value empty' : 'field-value';
+  return '<div class="field"><div class="field-label">' + label + '</div><div class="' + cls + '">' + displayValue + '</div></div>';
+}
+
+function showTooltip(e, seat) {
+  const tip = document.getElementById('tooltip');
+  let text = 'Puesto #' + seat.seat_no;
+  if (seat.person && seat.person.name) {
+    text += ' - ' + seat.person.name;
+    if (seat.person.department) text += ' (' + seat.person.department + ')';
+  }
+  tip.textContent = text;
+  tip.classList.add('visible');
+  moveTooltip(e);
+}
+
+function moveTooltip(e) {
+  const tip = document.getElementById('tooltip');
+  tip.style.left = (e.clientX + 12) + 'px';
+  tip.style.top = (e.clientY - 30) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+function populateFilters(data) {
+  const sel = document.getElementById('filter-dept');
+  for (const dept of data.departments) {
+    const opt = document.createElement('option');
+    opt.value = dept;
+    opt.textContent = dept;
+    sel.appendChild(opt);
+  }
+}
+
+function buildLegend(data) {
+  const legend = document.getElementById('legend');
+  let html = '<span style="font-weight:600;color:#555;">Departamentos:</span>';
+  for (const dept of data.departments) {
+    html += '<span class="item"><span class="swatch" style="background:' + getSeatColorRaw(dept) + '"></span>' + dept + '</span>';
+  }
+  html += '<span class="item"><span class="swatch" style="background:#e0e0e0"></span>Sin asignar</span>';
+  html += '<span style="margin-left:8px;font-weight:600;color:#555;">Salas:</span>';
+  html += '<span class="item"><span class="swatch" style="background:#a5d6a7"></span>Comedor</span>';
+  html += '<span class="item"><span class="swatch" style="background:#90caf9"></span>Entrenamiento</span>';
+  html += '<span class="item"><span class="swatch" style="background:#ce93d8"></span>Reuniones</span>';
+  html += '<span class="item"><span class="swatch" style="background:#81d4fa"></span>IT</span>';
+  html += '<span class="item"><span class="swatch" style="background:#ffcc80"></span>Gerencia</span>';
+  legend.innerHTML = html;
+}
+
+function applyFilters() {
+  if (!DATA) return;
+  const seats = document.querySelectorAll('.cell.seat');
+  let visible = 0;
+  const total = DATA.total_seats;
+  const searchLower = currentSearch.toLowerCase();
+
+  seats.forEach(div => {
+    const dept = div.dataset.personDept || '';
+    const name = div.dataset.personName || '';
+    let show = true;
+
+    if (currentFilter !== 'all' && dept !== currentFilter) {
+      show = false;
+    }
+    if (searchLower && !name.toLowerCase().includes(searchLower)) {
+      show = false;
+    }
+
+    if (show) {
+      div.classList.remove('dimmed');
+      visible++;
+    } else {
+      div.classList.add('dimmed');
+    }
+  });
+
+  document.getElementById('counter').textContent =
+    'Mostrando ' + visible + ' de ' + total + ' puestos';
+}
+
+function init(data) {
+  DATA = data;
+  buildGrid(data);
+  populateFilters(data);
+  buildLegend(data);
+  applyFilters();
+
+  document.getElementById('filter-dept').addEventListener('change', (e) => {
+    currentFilter = e.target.value;
+    applyFilters();
+  });
+
+  document.getElementById('search').addEventListener('input', (e) => {
+    currentSearch = e.target.value;
+    applyFilters();
+  });
+
+  document.getElementById('modal-close').addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.remove('active');
+  });
+
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      e.currentTarget.classList.remove('active');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('modal-overlay').classList.remove('active');
+    }
+  });
+}
+
+fetch('floor_plan_data.json')
+  .then(r => {
+    if (!r.ok) throw new Error('No se pudo cargar floor_plan_data.json');
+    return r.json();
+  })
+  .then(data => init(data))
+  .catch(err => {
+    document.getElementById('counter').textContent = 'Error: ' + err.message;
+    document.getElementById('grid').innerHTML =
+      '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#c00;font-size:16px;">' +
+      '<p>Error cargando datos del mapa.</p>' +
+      '<p style="font-size:13px;color:#666;margin-top:8px;">Asegúrese de que <code>floor_plan_data.json</code> esté en la misma carpeta que este archivo HTML.</p>' +
+      '<p style="font-size:13px;color:#666;">Ejecute <code>python generar_mapa.py</code> para generar el archivo de datos.</p>' +
+      '</div>';
+  });
+</script>
+</body>
+</html>

@@ -11,8 +11,8 @@ import os
 from datetime import datetime
 import openpyxl
 
-EXCEL_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
 
@@ -87,6 +87,7 @@ def read_seats_allocation(wb):
         name = ws.cell(row, 2).value
         brigadista = ws.cell(row, 3).value
         notas = ws.cell(row, 4).value
+        department = ws.cell(row, 5).value
         seat_key = normalize_seat_no(seat_no_raw)
         if seat_key is None:
             continue
@@ -94,6 +95,7 @@ def read_seats_allocation(wb):
             "name": fix_encoding(str(name).strip()) if name else None,
             "brigadista": fix_encoding(str(brigadista).strip()) if brigadista else None,
             "notas": fix_encoding(str(notas).strip()) if notas else None,
+            "department": fix_encoding(str(department).strip()) if department else None,
         }
     return seats
 
@@ -126,7 +128,7 @@ def join_data(seat_positions, seats_alloc, people):
                 "name": info["name"],
                 "brigadista": info["brigadista"],
                 "notas": info["notas"],
-                "department": p["department"] if p else None,
+                "department": info.get("department") or (p["department"] if p else None),
                 "title": p["title"] if p else None,
             }
         result.append({
@@ -171,7 +173,7 @@ def build_brigadistas(seats_with_people):
     return sorted(brig.keys())
 
 
-def generate_html(data_json):
+def generate_html(static_json, data_json):
     return '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -264,7 +266,7 @@ body {
   font-weight: 600; text-align: center; line-height: 1.2;
   color: #333; padding: 2px 3px;
 }
-.cell.room.narrow { font-size: 9px; writing-mode: vertical-rl; text-orientation: mixed; }
+.cell.room.narrow { font-size: 7px; }
 .cell.seat {
   cursor: pointer; border: 1px solid rgba(0,0,0,0.1);
   font-size: 10px; font-weight: 700; color: #333; z-index: 1;
@@ -330,6 +332,8 @@ body {
 .btn-danger:hover { background: #b71c1c; }
 .btn-secondary { background: #e0e0e0; color: #333; }
 .btn-secondary:hover { background: #bdbdbd; }
+.btn-success { background: #2e7d32; color: #fff; }
+.btn-success:hover { background: #1b5e20; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .autocomplete-wrap { position: relative; }
 .autocomplete-input {
@@ -353,6 +357,20 @@ body {
   font-size: 11px; color: #888; margin-left: 6px;
 }
 .autocomplete-item.selected { background: #c5cae9; font-weight: 600; }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: #555; margin-bottom: 4px; text-transform: uppercase;
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 2px solid #ddd;
+  border-radius: 6px; font-size: 14px; outline: none;
+  font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color: #1a237e;
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
 #confirm-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.4); z-index: 2000;
@@ -384,6 +402,33 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 #tooltip.visible { display: block; }
+.admin-panel {
+  display: none; background: #fff3e0; padding: 8px 20px;
+  border-bottom: 2px solid #ff9800; font-size: 12px;
+  align-items: center; gap: 12px;
+}
+.admin-panel.visible { display: flex; }
+.admin-panel .admin-label {
+  font-weight: 700; color: #e65100; text-transform: uppercase;
+}
+.color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.color-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #f5f5f5; border-radius: 6px; }
+.color-item label { font-size: 12px; font-weight: 600; color: #555; flex: 1; min-width: 0; }
+.color-item input[type="color"] { width: 36px; height: 28px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; padding: 0; }
+.color-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+.color-section-title { font-size: 13px; font-weight: 700; color: #333; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #dc1e28; }
+.room-editor-bar {
+  display: none; background: #fff3e0; padding: 8px 20px;
+  border-bottom: 2px solid #ff9800; font-size: 12px;
+  align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.room-editor-bar.active { display: flex; }
+.room-editor-bar .re-label { font-weight: 700; color: #e65100; text-transform: uppercase; }
+.room-editor-bar .re-status { font-weight: 600; color: #333; }
+.cell.room.editor-hover { outline: 3px solid #ff9800; outline-offset: -1px; box-shadow: 0 0 8px rgba(255,152,0,0.5); z-index: 20; }
+.cell.room.editor-selected { outline: 3px solid #dc1e28; outline-offset: -1px; box-shadow: 0 0 8px rgba(220,30,40,0.5); z-index: 20; }
+.cell.editor-target { outline: 2px dashed #ff9800; outline-offset: -1px; background: rgba(255,152,0,0.15) !important; }
 </style>
 </head>
 <body>
@@ -398,6 +443,23 @@ body {
     <span id="counter">Cargando...</span>
     <span id="sp-status" class="connected">Conectado a SharePoint</span>
   </div>
+</div>
+<div id="admin-panel" class="admin-panel">
+  <span class="admin-label">Admin Mode</span>
+  <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
+  <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
+  <button class="btn btn-secondary" onclick="showColorPickerModal()" style="font-size:12px;padding:4px 12px">Customize Colors</button>
+  <button class="btn btn-secondary" onclick="toggleRoomEditor()" id="btn-room-editor" style="font-size:12px;padding:4px 12px">Edit Rooms</button>
+  <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
+</div>
+<div id="room-editor-bar" class="room-editor-bar">
+  <span class="re-label">Room Editor:</span>
+  <span class="re-status" id="re-status">Click a room to edit, or click two empty cells to draw a new room</span>
+  <button class="btn btn-primary" id="re-draw-btn" onclick="startDrawRoom()" style="font-size:11px;padding:3px 10px">Draw New Room</button>
+  <button class="btn btn-danger" id="re-cancel-draw-btn" onclick="cancelDraw()" style="font-size:11px;padding:3px 10px;display:none">Cancel Draw</button>
+  <button class="btn btn-danger" id="re-delete-btn" onclick="deleteSelectedRoom()" style="font-size:11px;padding:3px 10px;display:none">Delete Room</button>
+  <button class="btn btn-secondary" onclick="resetCustomRooms()" style="font-size:11px;padding:3px 10px">Reset Rooms</button>
+  <button class="btn btn-secondary" onclick="cancelRoomEditor()" style="font-size:11px;padding:3px 10px">Exit Editor</button>
 </div>
 <div id="legend"></div>
 <div id="grid-container"><div id="grid"></div></div>
@@ -424,29 +486,36 @@ body {
 <div id="tooltip"></div>
 <script>
 var DEPT_COLORS = {
-  Finance: '#c8e6c9', IT: '#bbdefb', ENS: '#ffe0b2', Title: '#e1bee7',
-  IBC: '#fff9c4', CaseAware: '#f8bbd0', VS360: '#b2dfdb', 'Firm Solutions': '#dcedc8'
+  Finance: '#50505a', IT: '#dc1e28', ENS: '#f5c6cb', Title: '#6c757d',
+  IBC: '#d6d8db', CaseAware: '#e78c92', VS360: '#a8323b', 'Firm Solutions': '#bfc1c5'
 };
+var DEPARTMENTS = ['Finance', 'IT', 'ENS', 'Title', 'IBC', 'CaseAware', 'VS360', 'Firm Solutions'];
 var ROOM_COLORS = {
-  COMEDOR: '#a5d6a7', ARCHIVE: '#bcaaa4', 'CUARTO DE IT': '#81d4fa',
-  'BA\\u00d1O DE MUJERES': '#bdbdbd', 'BA\\u00d1O DE HOMBRES': '#bdbdbd',
-  LOCKERS: '#cfd8dc', 'SALA DE ENTRENAMIENTO': '#90caf9',
-  'SALA DE REUNIONES': '#ce93d8', RECEPCION: '#80cbc4',
-  'CUARTO ELECTRICO': '#b0bec5', 'CUARTO DE A/C': '#b0bec5',
-  'CUARTO A/C': '#b0bec5', 'OFICINA DE IT': '#b3e5fc',
-  'DEPOSITO IT': '#b3e5fc', 'WAR ROOM': '#ef9a9a',
-  'OFICINA GERENCIA': '#ffcc80', 'OFICINA DE GERENCIA 03': '#ffab91',
-  'OFICINA DE GERENCIA 06': '#ff8a65',
-  'HR162': '#a1887f', Supervisor: '#ffe082'
+  COMEDOR: '#f5c6cb', ARCHIVE: '#d6d8db', 'CUARTO DE IT': '#e78c92',
+  'BA\\u00d1O DE MUJERES': '#bfc1c5', 'BA\\u00d1O DE HOMBRES': '#bfc1c5',
+  LOCKERS: '#e8e8ec', 'SALA DE ENTRENAMIENTO': '#dc1e28',
+  'SALA DE REUNIONES': '#a8323b', RECEPCION: '#6c757d',
+  'CUARTO ELECTRICO': '#d6d8db', 'CUARTO DE A/C': '#d6d8db',
+  'CUARTO A/C': '#d6d8db', 'OFICINA DE IT': '#e78c92',
+  'DEPOSITO IT': '#e78c92', 'WAR ROOM': '#dc1e28',
+  'OFICINA GERENCIA': '#50505a', 'OFICINA DE GERENCIA 03': '#6c757d',
+  'OFICINA DE GERENCIA 06': '#6c757d',
+  'HR162': '#a8323b', Supervisor: '#50505a'
 };
 
 var SHAREPOINT_SITE = '';
-var DATA_FILE_PATH = '/sites/YOURSITE/Shared Documents/FloorPlan/data.json';
+var PEOPLE_LIST = 'People';
+var SEATS_LIST = 'Seats';
 
+var STATIC_DATA = ''' + static_json + ''';
 var DATA = ''' + data_json + ''';
-var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
+
 var isSharePoint = SHAREPOINT_SITE.length > 0;
+var isAdmin = new URLSearchParams(window.location.search).has('admin');
+var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
 var hasChanges = false;
+var spPeople = [];
+var spSeats = [];
 
 function getDeptColor(d) { return d && DEPT_COLORS[d] ? DEPT_COLORS[d] : '#e0e0e0'; }
 function getRoomColor(name) {
@@ -493,7 +562,8 @@ function buildGrid() {
   LOCAL_DATA.seats.forEach(function(s) { seatMap[s.row + ',' + s.col] = s; });
   var roomOrigin = {};
   var covered = {};
-  LOCAL_DATA.rooms.forEach(function(r) {
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  allRooms.forEach(function(r) {
     roomOrigin[r.min_row + ',' + r.min_col] = r;
     for (var rr = r.min_row; rr <= r.max_row; rr++) {
       for (var cc = r.min_col; cc <= r.max_col; cc++) {
@@ -577,7 +647,10 @@ function showModal(seat) {
     h += fl('Brigadista', seat.brigadista || (p ? p.brigadista : ''));
     h += fl('Notas de Salud', p.notas);
     h += '<div class="modal-actions">';
-    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button>';
+    if (isAdmin) {
+      h += '<button class="btn btn-success" onclick="editPerson(\\'' + p.name.replace(/'/g, "\\'") + '\\')">Edit Person</button> ';
+    }
+    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button> ';
     h += '<button class="btn btn-danger" onclick="confirmUnassign(\\'' + seat.seat_no + '\\')">Desasignar</button>';
     h += '</div>';
   } else {
@@ -760,55 +833,421 @@ function doUnassign(seatNo) {
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
+  if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
+    cancelDraw();
+  }
+}
+
+// ============================================================
+// ADMIN: Edit Person
+// ============================================================
+function editPerson(personName) {
+  document.getElementById('modal-overlay').classList.remove('active');
+  var pd = LOCAL_DATA.people_directory || [];
+  var person = null;
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name === personName) { person = pd[i]; break; }
+  }
+  if (!person) { toast('Person not found', 'error'); return; }
+
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Edit Person';
+  var h = '<div class="form-group"><label>Full Name</label>';
+  h += '<input type="text" id="edit-name" value="' + (person.name || '').replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="form-group"><label>Department</label>';
+  h += '<select id="edit-dept">';
+  DEPARTMENTS.forEach(function(d) {
+    var sel = person.department === d ? ' selected' : '';
+    h += '<option value="' + d + '"' + sel + '>' + d + '</option>';
+  });
+  h += '</select></div>';
+  h += '<div class="form-group"><label>Job Title</label>';
+  h += '<input type="text" id="edit-title" value="' + (person.title || '').replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="savePersonEdit(\\'' + personName.replace(/'/g, "\\'") + '\\')">Save</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function savePersonEdit(oldName) {
+  var newName = document.getElementById('edit-name').value.trim();
+  var newDept = document.getElementById('edit-dept').value;
+  var newTitle = document.getElementById('edit-title').value.trim();
+  if (!newName) { toast('Name is required', 'error'); return; }
+
+  // Update people_directory
+  var pd = LOCAL_DATA.people_directory || [];
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name === oldName) {
+      pd[i].name = newName;
+      pd[i].department = newDept;
+      pd[i].title = newTitle;
+      break;
+    }
+  }
+
+  // Update all seats with this person
+  LOCAL_DATA.seats.forEach(function(s) {
+    if (s.person && s.person.name === oldName) {
+      s.person.name = newName;
+      s.person.department = newDept;
+      s.person.title = newTitle;
+    }
+  });
+
+  // Update brigadistas if name changed
+  if (oldName !== newName) {
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.brigadista === oldName) s.brigadista = newName;
+    });
+  }
+
+  hasChanges = true;
+  closeModal();
+  refreshGrid();
+  toast('Person updated: ' + newName, 'success');
+  autoSave();
+}
+
+// ============================================================
+// ADMIN: Add New Person
+// ============================================================
+function showAddPersonModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Add New Person';
+  var h = '<div class="form-group"><label>Full Name</label>';
+  h += '<input type="text" id="new-name" placeholder="Enter full name"></div>';
+  h += '<div class="form-group"><label>Department</label>';
+  h += '<select id="new-dept">';
+  DEPARTMENTS.forEach(function(d) {
+    h += '<option value="' + d + '">' + d + '</option>';
+  });
+  h += '</select></div>';
+  h += '<div class="form-group"><label>Job Title</label>';
+  h += '<input type="text" id="new-title" placeholder="Enter job title"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveNewPerson()">Add Person</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function saveNewPerson() {
+  var name = document.getElementById('new-name').value.trim();
+  var dept = document.getElementById('new-dept').value;
+  var title = document.getElementById('new-title').value.trim();
+  if (!name) { toast('Name is required', 'error'); return; }
+
+  // Check duplicate
+  var pd = LOCAL_DATA.people_directory || [];
+  for (var i = 0; i < pd.length; i++) {
+    if (pd[i].name.toLowerCase() === name.toLowerCase()) {
+      toast('Person already exists', 'error');
+      return;
+    }
+  }
+
+  pd.push({ name: name, department: dept, title: title });
+  pd.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  LOCAL_DATA.people_directory = pd;
+
+  hasChanges = true;
+  closeModal();
+  toast('Person added: ' + name, 'success');
+  autoSave();
+}
+
+// ============================================================
+// ADMIN: Manage Brigadistas
+// ============================================================
+function showManageBrigadistasModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Manage Brigadistas';
+  var brigadistas = LOCAL_DATA.brigadistas || [];
+  var h = '<div style="margin-bottom:12px">';
+  h += '<div class="form-group"><label>Add Brigadista (from People directory)</label>';
+  h += '<div class="autocomplete-wrap">';
+  h += '<input type="text" class="autocomplete-input" id="brig-ac-input" placeholder="Search person..." autocomplete="off">';
+  h += '<div class="autocomplete-list" id="brig-ac-list"></div>';
+  h += '</div></div>';
+  h += '<button class="btn btn-primary" id="btn-add-brig" disabled onclick="addBrigadista()" style="font-size:12px">Add</button>';
+  h += '</div>';
+  h += '<div style="border-top:1px solid #eee;padding-top:12px">';
+  h += '<div class="field-label" style="margin-bottom:8px">Current Brigadistas (' + brigadistas.length + ')</div>';
+  brigadistas.forEach(function(b) {
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 10px;background:#f5f5f5;border-radius:6px">';
+    h += '<span style="flex:1;font-size:13px">' + b + '</span>';
+    h += '<button class="btn btn-danger" style="font-size:11px;padding:3px 8px" onclick="removeBrigadista(\\'' + b.replace(/'/g, "\\'") + '\\')">Remove</button>';
+    h += '</div>';
+  });
+  if (brigadistas.length === 0) h += '<div style="color:#999;font-style:italic;font-size:13px">No brigadistas assigned</div>';
+  h += '</div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Close</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  setupBrigadistaAutocomplete();
+}
+
+var selectedBrigPerson = null;
+function setupBrigadistaAutocomplete() {
+  selectedBrigPerson = null;
+  var input = document.getElementById('brig-ac-input');
+  var list = document.getElementById('brig-ac-list');
+  var btn = document.getElementById('btn-add-brig');
+
+  function renderList(filter) {
+    var html = '';
+    var people = LOCAL_DATA.people_directory || [];
+    var brigadistas = LOCAL_DATA.brigadistas || [];
+    var count = 0;
+    for (var i = 0; i < people.length && count < 20; i++) {
+      var p = people[i];
+      if (brigadistas.indexOf(p.name) >= 0) continue;
+      if (filter && p.name.toLowerCase().indexOf(filter.toLowerCase()) < 0) continue;
+      html += '<div class="autocomplete-item" data-name="' + p.name.replace(/"/g, '&quot;') + '">';
+      html += p.name + '<span class="ac-dept">' + (p.department || '') + '</span></div>';
+      count++;
+    }
+    if (count === 0) html = '<div class="autocomplete-item" style="color:#999">No available people</div>';
+    list.innerHTML = html;
+    list.classList.add('open');
+    list.querySelectorAll('.autocomplete-item[data-name]').forEach(function(item) {
+      item.addEventListener('click', function() {
+        selectedBrigPerson = this.getAttribute('data-name');
+        input.value = selectedBrigPerson;
+        list.classList.remove('open');
+        btn.disabled = false;
+      });
+    });
+  }
+
+  input.addEventListener('input', function() {
+    selectedBrigPerson = null;
+    btn.disabled = true;
+    renderList(this.value);
+  });
+  input.addEventListener('focus', function() { renderList(this.value); });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-wrap')) list.classList.remove('open');
+  });
+}
+
+function addBrigadista() {
+  if (!selectedBrigPerson) return;
+  var brig = LOCAL_DATA.brigadistas || [];
+  if (brig.indexOf(selectedBrigPerson) >= 0) { toast('Already a brigadista', 'error'); return; }
+  brig.push(selectedBrigPerson);
+  brig.sort();
+  LOCAL_DATA.brigadistas = brig;
+  hasChanges = true;
+  showManageBrigadistasModal();
+  toast('Brigadista added: ' + selectedBrigPerson, 'success');
+  autoSave();
+}
+
+function removeBrigadista(name) {
+  var brig = LOCAL_DATA.brigadistas || [];
+  LOCAL_DATA.brigadistas = brig.filter(function(b) { return b !== name; });
+  hasChanges = true;
+  showManageBrigadistasModal();
+  toast('Brigadista removed: ' + name, 'info');
+  autoSave();
+}
+
+// ============================================================
+// SHAREPOINT LISTS API
+// ============================================================
+function getDigest() {
+  var d = document.querySelector('#__REQUESTDIGEST');
+  return d ? d.value : '';
+}
+
+function spGet(listName) {
+  if (!isSharePoint) return Promise.resolve([]);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items?$top=5000";
+  return fetch(url, {
+    headers: { 'Accept': 'application/json;odata=verbose' }
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    return data.d.results || [];
+  });
+}
+
+function spCreate(listName, itemData) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest()
+    },
+    body: JSON.stringify(itemData)
+  }).then(function(r) { return r.json(); });
+}
+
+function spUpdate(listName, itemId, itemData) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest(),
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'MERGE'
+    },
+    body: JSON.stringify(itemData)
+  });
+}
+
+function spDelete(listName, itemId) {
+  if (!isSharePoint) return Promise.resolve(null);
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'X-RequestDigest': getDigest(),
+      'IF-MATCH': '*',
+      'X-HTTP-Method': 'DELETE'
+    }
+  });
+}
+
+function loadFromSharePointLists() {
+  if (!isSharePoint) return;
+  document.getElementById('sp-status').classList.add('connected');
+
+  Promise.all([spGet(PEOPLE_LIST), spGet(SEATS_LIST)]).then(function(results) {
+    spPeople = results[0];
+    spSeats = results[1];
+
+    // Build people_directory from People list
+    var peopleDir = [];
+    spPeople.forEach(function(item) {
+      peopleDir.push({
+        name: item.Title || '',
+        department: item.Department || '',
+        title: item.JobTitle || '',
+        _spId: item.Id
+      });
+    });
+    LOCAL_DATA.people_directory = peopleDir;
+
+    // Build brigadistas from People list (filter Status = Brigadista or separate logic)
+    // For now, keep existing brigadistas logic
+
+    // Build seats from Seats list + static seat_positions
+    var seatMap = {};
+    spSeats.forEach(function(item) {
+      seatMap[item.Title] = {
+        name: item.PersonName || null,
+        brigadista: item.Brigadista || null,
+        notas: item.Notas || null,
+        _spId: item.Id
+      };
+    });
+
+    LOCAL_DATA.seats = STATIC_DATA.seat_positions.map(function(sp) {
+      var seatNo = sp.seat_no;
+      var alloc = seatMap[seatNo];
+      var person = null;
+      if (alloc && alloc.name) {
+        var pd = null;
+        for (var i = 0; i < peopleDir.length; i++) {
+          if (peopleDir[i].name === alloc.name) { pd = peopleDir[i]; break; }
+        }
+        person = {
+          name: alloc.name,
+          brigadista: alloc.brigadista,
+          notas: alloc.notas,
+          department: pd ? pd.department : null,
+          title: pd ? pd.title : null
+        };
+      }
+      return {
+        row: sp.row,
+        col: sp.col,
+        seat_no: seatNo,
+        person: person,
+        brigadista: alloc ? alloc.brigadista : null
+      };
+    });
+
+    // Update departments
+    var depts = {};
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.person && s.person.department) depts[s.person.department] = 1;
+    });
+    LOCAL_DATA.departments = Object.keys(depts).sort();
+
+    // Update brigadistas
+    var brig = {};
+    LOCAL_DATA.seats.forEach(function(s) {
+      if (s.brigadista) brig[s.brigadista] = 1;
+    });
+    LOCAL_DATA.brigadistas = Object.keys(brig).sort();
+
+    refreshGrid();
+    toast('Data loaded from SharePoint Lists', 'success');
+  }).catch(function(err) {
+    console.error('SharePoint load error:', err);
+    toast('Could not connect to SharePoint, using local data', 'info');
+  });
+}
+
+function saveToSharePointLists() {
+  if (!isSharePoint || !hasChanges) return;
+
+  // Save each seat assignment
+  var promises = [];
+  LOCAL_DATA.seats.forEach(function(seat) {
+    var spSeat = null;
+    for (var i = 0; i < spSeats.length; i++) {
+      if (spSeats[i].Title === seat.seat_no) { spSeat = spSeats[i]; break; }
+    }
+
+    if (seat.person) {
+      var data = {
+        Title: seat.seat_no,
+        PersonName: seat.person.name || '',
+        Brigadista: seat.brigadista || '',
+        Notas: seat.person.notas || ''
+      };
+      if (spSeat) {
+        promises.push(spUpdate(SEATS_LIST, spSeat.Id, data));
+      } else {
+        promises.push(spCreate(SEATS_LIST, data));
+      }
+    } else if (spSeat) {
+      promises.push(spDelete(SEATS_LIST, spSeat.Id));
+    }
+  });
+
+  Promise.all(promises).then(function() {
+    hasChanges = false;
+    toast('Changes saved to SharePoint', 'success');
+  }).catch(function(err) {
+    console.error('SharePoint save error:', err);
+    toast('Error saving to SharePoint', 'error');
+  });
 }
 
 var saveTimeout = null;
 function autoSave() {
   if (!isSharePoint) return;
   if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(function() { saveToSharePoint(); }, 2000);
-}
-
-function saveToSharePoint() {
-  if (!isSharePoint) return;
-  LOCAL_DATA.timestamp = new Date().toISOString();
-  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
-  var digest = document.querySelector('#__REQUESTDIGEST');
-  var digestVal = digest ? digest.value : '';
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'X-RequestDigest': digestVal,
-      'Content-Type': 'application/json',
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'MERGE'
-    },
-    body: JSON.stringify(LOCAL_DATA)
-  }).then(function(r) {
-    if (r.ok) {
-      toast('Cambios guardados en SharePoint', 'success');
-      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date().toLocaleString('es-PA');
-    } else {
-      toast('Error al guardar en SharePoint', 'error');
-    }
-  }).catch(function() {
-    toast('Error de conexion con SharePoint', 'error');
-  });
-}
-
-function loadFromSharePoint() {
-  if (!isSharePoint) return;
-  var url = SHAREPOINT_SITE + "_api/web/GetFileByServerRelativeUrl('" + DATA_FILE_PATH + "')/$value";
-  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    LOCAL_DATA = data;
-    refreshGrid();
-    if (data.timestamp) {
-      document.getElementById('sp-timestamp').textContent = 'Actualizado: ' + new Date(data.timestamp).toLocaleString('es-PA');
-    }
-    toast('Datos cargados desde SharePoint', 'success');
-  }).catch(function() {
-    toast('No se pudo conectar a SharePoint, usando datos locales', 'info');
-  });
+  saveTimeout = setTimeout(function() { saveToSharePointLists(); }, 2000);
 }
 
 function updateCounter() {
@@ -884,21 +1323,495 @@ function initModalClose() {
   });
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      closeModal();
-      document.getElementById('confirm-overlay').classList.remove('active');
+      if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
+        cancelDraw();
+      } else {
+        closeModal();
+        document.getElementById('confirm-overlay').classList.remove('active');
+      }
     }
   });
 }
 
+// ============================================================
+// COLOR PICKER: Customize department and room colors
+// ============================================================
+var DEFAULT_DEPT_COLORS = JSON.parse(JSON.stringify(DEPT_COLORS));
+var DEFAULT_ROOM_COLORS = JSON.parse(JSON.stringify(ROOM_COLORS));
+
+function loadCustomColors() {
+  try {
+    var saved = localStorage.getItem('sortis_custom_colors');
+    if (saved) {
+      var data = JSON.parse(saved);
+      if (data.dept) { for (var k in data.dept) { DEPT_COLORS[k] = data.dept[k]; } }
+      if (data.room) { for (var k in data.room) { ROOM_COLORS[k] = data.room[k]; } }
+    }
+  } catch(e) {}
+}
+
+function saveCustomColors(deptColors, roomColors) {
+  localStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
+}
+
+function resetColors() {
+  for (var k in DEFAULT_DEPT_COLORS) { DEPT_COLORS[k] = DEFAULT_DEPT_COLORS[k]; }
+  for (var k in DEFAULT_ROOM_COLORS) { ROOM_COLORS[k] = DEFAULT_ROOM_COLORS[k]; }
+  localStorage.removeItem('sortis_custom_colors');
+  refreshGrid();
+  initLegend();
+  toast('Colors reset to defaults', 'info');
+}
+
+function showColorPickerModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Customize Colors';
+  var h = '';
+
+  h += '<div class="color-section-title">Department Colors</div>';
+  h += '<div class="color-grid">';
+  var deptKeys = Object.keys(DEPT_COLORS).sort();
+  for (var i = 0; i < deptKeys.length; i++) {
+    var d = deptKeys[i];
+    h += '<div class="color-item"><label>' + d + '</label>';
+    h += '<input type="color" id="dc-' + d.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + DEPT_COLORS[d] + '"></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="color-section-title">Room Colors</div>';
+  h += '<div class="color-grid">';
+  var roomKeys = Object.keys(ROOM_COLORS).sort();
+  for (var j = 0; j < roomKeys.length; j++) {
+    var r = roomKeys[j];
+    h += '<div class="color-item"><label>' + r + '</label>';
+    h += '<input type="color" id="rc-' + r.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + ROOM_COLORS[r] + '"></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-danger" onclick="resetColors(); closeModal();">Reset Defaults</button>';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="applyColorPicker()">Apply</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function applyColorPicker() {
+  var newDept = {};
+  var deptKeys = Object.keys(DEFAULT_DEPT_COLORS).sort();
+  for (var i = 0; i < deptKeys.length; i++) {
+    var d = deptKeys[i];
+    var el = document.getElementById('dc-' + d.replace(/[^a-zA-Z0-9]/g, '_'));
+    if (el) { newDept[d] = el.value; DEPT_COLORS[d] = el.value; }
+  }
+  var newRoom = {};
+  var roomKeys = Object.keys(DEFAULT_ROOM_COLORS).sort();
+  for (var j = 0; j < roomKeys.length; j++) {
+    var r = roomKeys[j];
+    var el2 = document.getElementById('rc-' + r.replace(/[^a-zA-Z0-9]/g, '_'));
+    if (el2) { newRoom[r] = el2.value; ROOM_COLORS[r] = el2.value; }
+  }
+  saveCustomColors(newDept, newRoom);
+  closeModal();
+  refreshGrid();
+  initLegend();
+  toast('Colors updated', 'success');
+}
+
+// ============================================================
+// ROOM EDITOR: Draw/edit rooms in admin mode
+// ============================================================
+var roomEditorActive = false;
+var roomEditorMode = 'idle'; // idle, draw-first, draw-second, edit
+var drawFirstCell = null;
+var selectedRoom = null;
+var customRooms = [];
+
+function loadCustomRooms() {
+  try {
+    var saved = localStorage.getItem('sortis_custom_rooms');
+    if (saved) customRooms = JSON.parse(saved);
+  } catch(e) { customRooms = []; }
+}
+
+function saveCustomRooms() {
+  localStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
+}
+
+function toggleRoomEditor() {
+  if (roomEditorActive) { cancelRoomEditor(); return; }
+  roomEditorActive = true;
+  roomEditorMode = 'idle';
+  document.getElementById('room-editor-bar').classList.add('active');
+  document.getElementById('btn-room-editor').textContent = 'Stop Editing';
+  document.getElementById('btn-room-editor').classList.remove('btn-secondary');
+  document.getElementById('btn-room-editor').classList.add('btn-danger');
+  document.getElementById('grid-container').style.height = 'calc(100vh - 140px)';
+  document.getElementById('re-status').textContent = 'Click a room to edit, or click "Draw New Room"';
+  addRoomEditorListeners();
+  toast('Room editor activated', 'info');
+}
+
+function cancelRoomEditor() {
+  roomEditorActive = false;
+  roomEditorMode = 'idle';
+  drawFirstCell = null;
+  selectedRoom = null;
+  document.getElementById('room-editor-bar').classList.remove('active');
+  document.getElementById('btn-room-editor').textContent = 'Edit Rooms';
+  document.getElementById('btn-room-editor').classList.remove('btn-danger');
+  document.getElementById('btn-room-editor').classList.add('btn-secondary');
+  document.getElementById('re-delete-btn').style.display = 'none';
+  document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+  removeRoomEditorListeners();
+  refreshGrid();
+}
+
+function addRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.addEventListener('click', onRoomEditorClick);
+    cell.addEventListener('mouseenter', onRoomEditorHover);
+    cell.addEventListener('mouseleave', onRoomEditorLeave);
+  });
+}
+
+function removeRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.removeEventListener('click', onRoomEditorClick);
+    cell.removeEventListener('mouseenter', onRoomEditorHover);
+    cell.removeEventListener('mouseleave', onRoomEditorLeave);
+  });
+}
+
+function getCellRC(cell) {
+  var gr = parseInt(cell.style.gridRow);
+  var gc = parseInt(cell.style.gridColumn);
+  return { row: gr, col: gc };
+}
+
+function onRoomEditorHover(e) {
+  if (!roomEditorActive) return;
+  var cell = e.target;
+  if (roomEditorMode === 'draw-first' || roomEditorMode === 'draw-second') {
+    cell.classList.add('editor-target');
+  }
+  if (cell.classList.contains('room')) {
+    cell.classList.add('editor-hover');
+  }
+}
+
+function onRoomEditorLeave(e) {
+  e.target.classList.remove('editor-target');
+  e.target.classList.remove('editor-hover');
+}
+
+function onRoomEditorClick(e) {
+  if (!roomEditorActive) return;
+  e.stopPropagation();
+  var cell = e.target;
+  var rc = getCellRC(cell);
+
+  if (roomEditorMode === 'draw-first') {
+    drawFirstCell = rc;
+    roomEditorMode = 'draw-second';
+    document.getElementById('re-status').textContent = 'Click second corner to complete the room';
+    cell.classList.add('editor-selected');
+    return;
+  }
+
+  if (roomEditorMode === 'draw-second') {
+    var r1 = Math.min(drawFirstCell.row, rc.row);
+    var c1 = Math.min(drawFirstCell.col, rc.col);
+    var r2 = Math.max(drawFirstCell.row, rc.row);
+    var c2 = Math.max(drawFirstCell.col, rc.col);
+    if (r1 === r2 && c1 === c2) { toast('Select two different cells', 'error'); return; }
+    showNewRoomForm(r1, c1, r2, c2);
+    return;
+  }
+
+  // In idle mode, try to find a room at this position
+  var room = findRoomAt(rc.row, rc.col);
+  if (room) {
+    selectedRoom = room;
+    document.getElementById('re-delete-btn').style.display = 'inline-block';
+    document.getElementById('re-status').textContent = 'Selected: ' + room.name + ' (' + (room.max_col-room.min_col+1) + 'x' + (room.max_row-room.min_row+1) + ')';
+    // Highlight the selected room
+    document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+    highlightRoom(room);
+    showEditRoomForm(room);
+    return;
+  }
+}
+
+function findRoomAt(row, col) {
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  // Check custom rooms first (they override static rooms)
+  for (var i = customRooms.length - 1; i >= 0; i--) {
+    var r = customRooms[i];
+    if (row >= r.min_row && row <= r.max_row && col >= r.min_col && col <= r.max_col) return r;
+  }
+  // Then check static rooms
+  for (var j = 0; j < STATIC_DATA.rooms.length; j++) {
+    var r2 = STATIC_DATA.rooms[j];
+    if (row >= r2.min_row && row <= r2.max_row && col >= r2.min_col && col <= r2.max_col) return r2;
+  }
+  return null;
+}
+
+function highlightRoom(room) {
+  document.querySelectorAll('.cell.room').forEach(function(cell) {
+    var rc = getCellRC(cell);
+    if (rc.row >= room.min_row && rc.row <= room.max_row && rc.col >= room.min_col && rc.col <= room.max_col) {
+      cell.classList.add('editor-selected');
+    }
+  });
+}
+
+function startDrawRoom() {
+  roomEditorMode = 'draw-first';
+  drawFirstCell = null;
+  document.getElementById('re-status').textContent = 'Click first corner of the new room (any empty cell)';
+  document.getElementById('re-draw-btn').style.display = 'none';
+  document.getElementById('re-cancel-draw-btn').style.display = 'inline-block';
+  document.querySelectorAll('.cell.empty, .cell.seat').forEach(function(c) {
+    c.style.cursor = 'crosshair';
+  });
+}
+
+function showNewRoomForm(r1, c1, r2, c2) {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'New Room';
+  var h = '<div class="form-group"><label>Room Name</label>';
+  h += '<input type="text" id="new-room-name" placeholder="e.g. OFICINA 01"></div>';
+  h += '<div class="form-group"><label>Position</label>';
+  h += '<div style="font-size:13px;color:#555">Row ' + r1 + '-' + r2 + ', Col ' + c1 + '-' + c2 + ' (' + (c2-c1+1) + ' x ' + (r2-r1+1) + ' cells)</div></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal(); cancelDraw();">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveNewRoom(' + r1 + ',' + c1 + ',' + r2 + ',' + c2 + ')">Create Room</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  document.getElementById('new-room-name').focus();
+}
+
+function cancelDraw() {
+  roomEditorMode = 'idle';
+  drawFirstCell = null;
+  document.getElementById('re-status').textContent = 'Click a room to edit, or click "Draw New Room"';
+  document.getElementById('re-draw-btn').style.display = 'inline-block';
+  document.getElementById('re-cancel-draw-btn').style.display = 'none';
+  document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+  document.querySelectorAll('.cell').forEach(function(c) { c.style.cursor = ''; });
+}
+
+function saveNewRoom(r1, c1, r2, c2) {
+  var name = document.getElementById('new-room-name').value.trim();
+  if (!name) { toast('Room name required', 'error'); return; }
+  var room = {
+    name: name,
+    min_row: r1, min_col: c1,
+    max_row: r2, max_col: c2,
+    _custom: true
+  };
+  customRooms.push(room);
+  saveCustomRooms();
+  closeModal();
+  cancelDraw();
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Room created: ' + name, 'success');
+}
+
+function selectRoomForEdit(cell) {
+  document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+  cell.classList.add('editor-selected');
+  var rc = getCellRC(cell);
+
+  var room = null;
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  for (var i = 0; i < allRooms.length; i++) {
+    var r = allRooms[i];
+    if (rc.row >= r.min_row && rc.row <= r.max_row && rc.col >= r.min_col && rc.col <= r.max_col) {
+      room = r; break;
+    }
+  }
+  if (!room) return;
+  selectedRoom = room;
+
+  document.getElementById('re-delete-btn').style.display = room._custom ? 'inline-block' : 'none';
+  document.getElementById('re-status').textContent = 'Editing: ' + room.name + ' (' + (room.max_col-room.min_col+1) + 'x' + (room.max_row-room.min_row+1) + ')';
+  showEditRoomForm(room);
+}
+
+function showEditRoomForm(room) {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Edit Room: ' + room.name;
+  var h = '<div class="form-group"><label>Room Name</label>';
+  h += '<input type="text" id="edit-room-name" value="' + room.name.replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="form-group"><label>Top-Left Row</label>';
+  h += '<input type="number" id="edit-room-r1" value="' + room.min_row + '" min="1" max="76"></div>';
+  h += '<div class="form-group"><label>Top-Left Column</label>';
+  h += '<input type="number" id="edit-room-c1" value="' + room.min_col + '" min="1" max="27"></div>';
+  h += '<div class="form-group"><label>Bottom-Right Row</label>';
+  h += '<input type="number" id="edit-room-r2" value="' + room.max_row + '" min="1" max="76"></div>';
+  h += '<div class="form-group"><label>Bottom-Right Column</label>';
+  h += '<input type="number" id="edit-room-c2" value="' + room.max_col + '" min="1" max="27"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveEditRoom()">Save</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function saveEditRoom() {
+  if (!selectedRoom) return;
+  var name = document.getElementById('edit-room-name').value.trim();
+  var r1 = parseInt(document.getElementById('edit-room-r1').value);
+  var c1 = parseInt(document.getElementById('edit-room-c1').value);
+  var r2 = parseInt(document.getElementById('edit-room-r2').value);
+  var c2 = parseInt(document.getElementById('edit-room-c2').value);
+  if (!name || !r1 || !c1 || !r2 || !c2) { toast('All fields required', 'error'); return; }
+  if (r1 > r2 || c1 > c2) { toast('Invalid range', 'error'); return; }
+
+  if (selectedRoom._custom) {
+    // Update existing custom room
+    selectedRoom.name = name;
+    selectedRoom.min_row = r1;
+    selectedRoom.min_col = c1;
+    selectedRoom.max_row = r2;
+    selectedRoom.max_col = c2;
+  } else {
+    // Static room → create a custom override
+    var newRoom = {
+      name: name,
+      min_row: r1, min_col: c1,
+      max_row: r2, max_col: c2,
+      _custom: true
+    };
+    customRooms.push(newRoom);
+  }
+  saveCustomRooms();
+
+  closeModal();
+  selectedRoom = null;
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Room saved: ' + name, 'success');
+}
+
+function deleteSelectedRoom() {
+  if (!selectedRoom) return;
+  var name = selectedRoom.name;
+  if (selectedRoom._custom) {
+    customRooms = customRooms.filter(function(r) { return r !== selectedRoom; });
+    saveCustomRooms();
+    toast('Room deleted: ' + name, 'info');
+  } else {
+    toast('Cannot delete original rooms', 'error');
+    return;
+  }
+  selectedRoom = null;
+  closeModal();
+  document.getElementById('re-delete-btn').style.display = 'none';
+  refreshGrid();
+  addRoomEditorListeners();
+}
+
+function resetCustomRooms() {
+  customRooms = [];
+  localStorage.removeItem('sortis_custom_rooms');
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Rooms reset to defaults', 'info');
+}
+
+function initAdmin() {
+  if (isAdmin) {
+    document.getElementById('admin-panel').classList.add('visible');
+    document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+    if (isSharePoint) {
+      document.getElementById('btn-seed').style.display = 'inline-block';
+    }
+  }
+}
+
+// ============================================================
+// SEED DATA: Populate SharePoint Lists from embedded data
+// ============================================================
+async function seedSharePointData() {
+  if (!isSharePoint) { toast('SharePoint not configured', 'error'); return; }
+  var people = DATA.people_directory || [];
+  var seats = DATA.seats || [];
+  var confirmMsg = 'This will create ' + people.length + ' people and ' + seats.filter(function(s){return s.person}).length + ' seat assignments in SharePoint Lists. Continue?';
+  if (!confirm(confirmMsg)) return;
+
+  var btn = document.getElementById('btn-seed');
+  btn.disabled = true;
+  btn.textContent = 'Seeding...';
+  var created = 0;
+  var errors = 0;
+
+  try {
+    // Seed People
+    toast('Creating people records...', 'info');
+    for (var i = 0; i < people.length; i++) {
+      var p = people[i];
+      try {
+        await spCreate(PEOPLE_LIST, {
+          Title: p.name,
+          Department: p.department || '',
+          JobTitle: p.title || '',
+          Status: 'Active'
+        });
+        created++;
+      } catch(e) { errors++; }
+    }
+    toast('People: ' + created + ' created, ' + errors + ' errors', 'success');
+
+    // Seed Seats
+    var seatCreated = 0;
+    var seatErrors = 0;
+    toast('Creating seat assignments...', 'info');
+    for (var j = 0; j < seats.length; j++) {
+      var s = seats[j];
+      if (!s.person || !s.person.name) continue;
+      try {
+        await spCreate(SEATS_LIST, {
+          Title: s.seat_no,
+          PersonName: s.person.name,
+          Brigadista: s.brigadista || '',
+          Notas: s.person.notas || ''
+        });
+        seatCreated++;
+      } catch(e) { seatErrors++; }
+    }
+    toast('Seats: ' + seatCreated + ' created, ' + seatErrors + ' errors', 'success');
+
+    btn.textContent = 'Seed Complete!';
+    btn.style.background = '#2e7d32';
+  } catch(e) {
+    toast('Seed failed: ' + e.message, 'error');
+    btn.textContent = 'Seed Failed';
+    btn.style.background = '#c62828';
+  }
+  btn.disabled = false;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  loadCustomColors();
+  loadCustomRooms();
+  initAdmin();
   buildGrid();
   initFilters();
   initLegend();
   initModalClose();
   updateCounter();
   if (isSharePoint) {
-    document.getElementById('sp-status').classList.add('connected');
-    loadFromSharePoint();
+    loadFromSharePointLists();
   }
 });
 </script>
@@ -935,6 +1848,13 @@ def main():
     brigadistas = build_brigadistas(seats_with_people)
     timestamp = datetime.now().isoformat()
 
+    # Static data (rooms + seat positions) - never changes
+    static_data = {
+        "rooms": room_cells,
+        "seat_positions": seat_positions,
+    }
+
+    # Full data (for JSON export and local mode)
     output = {
         "rooms": room_cells,
         "seats": seats_with_people,
@@ -950,8 +1870,9 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
     print(f"\nJSON: {JSON_PATH} ({os.path.getsize(JSON_PATH):,} bytes)")
 
+    static_json = json.dumps(static_data, ensure_ascii=False)
     data_json = json.dumps(output, ensure_ascii=False)
-    html = generate_html(data_json)
+    html = generate_html(static_json, data_json)
     with open(HTML_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")

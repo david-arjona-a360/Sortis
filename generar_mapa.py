@@ -832,6 +832,9 @@ function doUnassign(seatNo) {
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
+  if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
+    cancelDraw();
+  }
 }
 
 // ============================================================

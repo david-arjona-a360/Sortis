@@ -418,6 +418,17 @@ body {
 .color-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
 .color-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
 .color-section-title { font-size: 13px; font-weight: 700; color: #333; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #dc1e28; }
+.room-editor-bar {
+  display: none; background: #fff3e0; padding: 8px 20px;
+  border-bottom: 2px solid #ff9800; font-size: 12px;
+  align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.room-editor-bar.active { display: flex; }
+.room-editor-bar .re-label { font-weight: 700; color: #e65100; text-transform: uppercase; }
+.room-editor-bar .re-status { font-weight: 600; color: #333; }
+.cell.room.editor-hover { outline: 3px solid #ff9800; outline-offset: -1px; }
+.cell.room.editor-selected { outline: 3px solid #dc1e28; outline-offset: -1px; }
+.cell.editor-target { outline: 2px dashed #ff9800; outline-offset: -1px; background: rgba(255,152,0,0.15) !important; }
 </style>
 </head>
 <body>
@@ -438,7 +449,16 @@ body {
   <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
   <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
   <button class="btn btn-secondary" onclick="showColorPickerModal()" style="font-size:12px;padding:4px 12px">Customize Colors</button>
+  <button class="btn btn-secondary" onclick="toggleRoomEditor()" id="btn-room-editor" style="font-size:12px;padding:4px 12px">Edit Rooms</button>
   <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
+</div>
+<div id="room-editor-bar" class="room-editor-bar">
+  <span class="re-label">Room Editor:</span>
+  <span class="re-status" id="re-status">Click a room to edit, or click two empty cells to draw a new room</span>
+  <button class="btn btn-primary" id="re-draw-btn" onclick="startDrawRoom()" style="font-size:11px;padding:3px 10px">Draw New Room</button>
+  <button class="btn btn-danger" id="re-delete-btn" onclick="deleteSelectedRoom()" style="font-size:11px;padding:3px 10px;display:none">Delete Room</button>
+  <button class="btn btn-secondary" onclick="resetCustomRooms()" style="font-size:11px;padding:3px 10px">Reset Rooms</button>
+  <button class="btn btn-secondary" onclick="cancelRoomEditor()" style="font-size:11px;padding:3px 10px">Exit Editor</button>
 </div>
 <div id="legend"></div>
 <div id="grid-container"><div id="grid"></div></div>
@@ -541,7 +561,8 @@ function buildGrid() {
   LOCAL_DATA.seats.forEach(function(s) { seatMap[s.row + ',' + s.col] = s; });
   var roomOrigin = {};
   var covered = {};
-  STATIC_DATA.rooms.forEach(function(r) {
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  allRooms.forEach(function(r) {
     roomOrigin[r.min_row + ',' + r.min_col] = r;
     for (var rr = r.min_row; rr <= r.max_row; rr++) {
       for (var cc = r.min_col; cc <= r.max_col; cc++) {
@@ -1390,6 +1411,269 @@ function applyColorPicker() {
   toast('Colors updated', 'success');
 }
 
+// ============================================================
+// ROOM EDITOR: Draw/edit rooms in admin mode
+// ============================================================
+var roomEditorActive = false;
+var roomEditorMode = 'idle'; // idle, draw-first, draw-second, edit
+var drawFirstCell = null;
+var selectedRoom = null;
+var customRooms = [];
+
+function loadCustomRooms() {
+  try {
+    var saved = localStorage.getItem('sortis_custom_rooms');
+    if (saved) customRooms = JSON.parse(saved);
+  } catch(e) { customRooms = []; }
+}
+
+function saveCustomRooms() {
+  localStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
+}
+
+function toggleRoomEditor() {
+  if (roomEditorActive) { cancelRoomEditor(); return; }
+  roomEditorActive = true;
+  roomEditorMode = 'idle';
+  document.getElementById('room-editor-bar').classList.add('active');
+  document.getElementById('btn-room-editor').textContent = 'Stop Editing';
+  document.getElementById('btn-room-editor').classList.remove('btn-secondary');
+  document.getElementById('btn-room-editor').classList.add('btn-danger');
+  document.getElementById('grid-container').style.height = 'calc(100vh - 140px)';
+  document.getElementById('re-status').textContent = 'Click a room to edit, or click "Draw New Room"';
+  addRoomEditorListeners();
+  toast('Room editor activated', 'info');
+}
+
+function cancelRoomEditor() {
+  roomEditorActive = false;
+  roomEditorMode = 'idle';
+  drawFirstCell = null;
+  selectedRoom = null;
+  document.getElementById('room-editor-bar').classList.remove('active');
+  document.getElementById('btn-room-editor').textContent = 'Edit Rooms';
+  document.getElementById('btn-room-editor').classList.remove('btn-danger');
+  document.getElementById('btn-room-editor').classList.add('btn-secondary');
+  document.getElementById('re-delete-btn').style.display = 'none';
+  document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+  removeRoomEditorListeners();
+  refreshGrid();
+}
+
+function addRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.addEventListener('click', onRoomEditorClick);
+    cell.addEventListener('mouseenter', onRoomEditorHover);
+    cell.addEventListener('mouseleave', onRoomEditorLeave);
+  });
+}
+
+function removeRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.removeEventListener('click', onRoomEditorClick);
+    cell.removeEventListener('mouseenter', onRoomEditorHover);
+    cell.removeEventListener('mouseleave', onRoomEditorLeave);
+  });
+}
+
+function getCellRC(cell) {
+  var gr = parseInt(cell.style.gridRow);
+  var gc = parseInt(cell.style.gridColumn);
+  return { row: gr, col: gc };
+}
+
+function onRoomEditorHover(e) {
+  if (!roomEditorActive) return;
+  var cell = e.target;
+  if (roomEditorMode === 'draw-first' || roomEditorMode === 'draw-second') {
+    cell.classList.add('editor-target');
+  }
+  if (cell.classList.contains('room')) {
+    cell.classList.add('editor-hover');
+  }
+}
+
+function onRoomEditorLeave(e) {
+  e.target.classList.remove('editor-target');
+  e.target.classList.remove('editor-hover');
+}
+
+function onRoomEditorClick(e) {
+  if (!roomEditorActive) return;
+  e.stopPropagation();
+  var cell = e.target;
+  var rc = getCellRC(cell);
+
+  if (roomEditorMode === 'draw-first') {
+    drawFirstCell = rc;
+    roomEditorMode = 'draw-second';
+    document.getElementById('re-status').textContent = 'Click second corner to complete the room';
+    cell.classList.add('editor-selected');
+    return;
+  }
+
+  if (roomEditorMode === 'draw-second') {
+    var r1 = Math.min(drawFirstCell.row, rc.row);
+    var c1 = Math.min(drawFirstCell.col, rc.col);
+    var r2 = Math.max(drawFirstCell.row, rc.row);
+    var c2 = Math.max(drawFirstCell.col, rc.col);
+    if (r1 === r2 && c1 === c2) { toast('Select two different cells', 'error'); return; }
+    showNewRoomForm(r1, c1, r2, c2);
+    return;
+  }
+
+  if (cell.classList.contains('room')) {
+    selectRoomForEdit(cell);
+    return;
+  }
+}
+
+function startDrawRoom() {
+  roomEditorMode = 'draw-first';
+  drawFirstCell = null;
+  document.getElementById('re-status').textContent = 'Click first corner of the new room';
+  document.getElementById('re-draw-btn').textContent = 'Drawing...';
+  document.getElementById('re-draw-btn').disabled = true;
+}
+
+function showNewRoomForm(r1, c1, r2, c2) {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'New Room';
+  var h = '<div class="form-group"><label>Room Name</label>';
+  h += '<input type="text" id="new-room-name" placeholder="e.g. OFICINA 01"></div>';
+  h += '<div class="form-group"><label>Position</label>';
+  h += '<div style="font-size:13px;color:#555">Row ' + r1 + '-' + r2 + ', Col ' + c1 + '-' + c2 + ' (' + (c2-c1+1) + ' x ' + (r2-r1+1) + ' cells)</div></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal(); cancelDraw();">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveNewRoom(' + r1 + ',' + c1 + ',' + r2 + ',' + c2 + ')">Create Room</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+  document.getElementById('new-room-name').focus();
+}
+
+function cancelDraw() {
+  roomEditorMode = 'idle';
+  drawFirstCell = null;
+  document.getElementById('re-status').textContent = 'Click a room to edit, or click "Draw New Room"';
+  document.getElementById('re-draw-btn').textContent = 'Draw New Room';
+  document.getElementById('re-draw-btn').disabled = false;
+  document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+}
+
+function saveNewRoom(r1, c1, r2, c2) {
+  var name = document.getElementById('new-room-name').value.trim();
+  if (!name) { toast('Room name required', 'error'); return; }
+  var room = {
+    name: name,
+    min_row: r1, min_col: c1,
+    max_row: r2, max_col: c2,
+    _custom: true
+  };
+  customRooms.push(room);
+  saveCustomRooms();
+  closeModal();
+  cancelDraw();
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Room created: ' + name, 'success');
+}
+
+function selectRoomForEdit(cell) {
+  document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+  cell.classList.add('editor-selected');
+  var rc = getCellRC(cell);
+
+  var room = null;
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  for (var i = 0; i < allRooms.length; i++) {
+    var r = allRooms[i];
+    if (rc.row >= r.min_row && rc.row <= r.max_row && rc.col >= r.min_col && rc.col <= r.max_col) {
+      room = r; break;
+    }
+  }
+  if (!room) return;
+  selectedRoom = room;
+
+  document.getElementById('re-delete-btn').style.display = room._custom ? 'inline-block' : 'none';
+  document.getElementById('re-status').textContent = 'Editing: ' + room.name + ' (' + (room.max_col-room.min_col+1) + 'x' + (room.max_row-room.min_row+1) + ')';
+  showEditRoomForm(room);
+}
+
+function showEditRoomForm(room) {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Edit Room: ' + room.name;
+  var h = '<div class="form-group"><label>Room Name</label>';
+  h += '<input type="text" id="edit-room-name" value="' + room.name.replace(/"/g, '&quot;') + '"></div>';
+  h += '<div class="form-group"><label>Top-Left Row</label>';
+  h += '<input type="number" id="edit-room-r1" value="' + room.min_row + '" min="1" max="76"></div>';
+  h += '<div class="form-group"><label>Top-Left Column</label>';
+  h += '<input type="number" id="edit-room-c1" value="' + room.min_col + '" min="1" max="27"></div>';
+  h += '<div class="form-group"><label>Bottom-Right Row</label>';
+  h += '<input type="number" id="edit-room-r2" value="' + room.max_row + '" min="1" max="76"></div>';
+  h += '<div class="form-group"><label>Bottom-Right Column</label>';
+  h += '<input type="number" id="edit-room-c2" value="' + room.max_col + '" min="1" max="27"></div>';
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="saveEditRoom()">Save</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function saveEditRoom() {
+  if (!selectedRoom) return;
+  var name = document.getElementById('edit-room-name').value.trim();
+  var r1 = parseInt(document.getElementById('edit-room-r1').value);
+  var c1 = parseInt(document.getElementById('edit-room-c1').value);
+  var r2 = parseInt(document.getElementById('edit-room-r2').value);
+  var c2 = parseInt(document.getElementById('edit-room-c2').value);
+  if (!name || !r1 || !c1 || !r2 || !c2) { toast('All fields required', 'error'); return; }
+  if (r1 > r2 || c1 > c2) { toast('Invalid range', 'error'); return; }
+
+  selectedRoom.name = name;
+  selectedRoom.min_row = r1;
+  selectedRoom.min_col = c1;
+  selectedRoom.max_row = r2;
+  selectedRoom.max_col = c2;
+
+  if (selectedRoom._custom) {
+    saveCustomRooms();
+  } else {
+    var idx = STATIC_DATA.rooms.indexOf(selectedRoom);
+    if (idx >= 0) STATIC_DATA.rooms[idx] = selectedRoom;
+  }
+
+  closeModal();
+  selectedRoom = null;
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Room updated: ' + name, 'success');
+}
+
+function deleteSelectedRoom() {
+  if (!selectedRoom || !selectedRoom._custom) { toast('Can only delete custom rooms', 'error'); return; }
+  var name = selectedRoom.name;
+  customRooms = customRooms.filter(function(r) { return r !== selectedRoom; });
+  saveCustomRooms();
+  selectedRoom = null;
+  closeModal();
+  document.getElementById('re-delete-btn').style.display = 'none';
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Room deleted: ' + name, 'info');
+}
+
+function resetCustomRooms() {
+  customRooms = [];
+  localStorage.removeItem('sortis_custom_rooms');
+  refreshGrid();
+  addRoomEditorListeners();
+  toast('Rooms reset to defaults', 'info');
+}
+
 function initAdmin() {
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
@@ -1464,6 +1748,7 @@ async function seedSharePointData() {
 
 document.addEventListener('DOMContentLoaded', function() {
   loadCustomColors();
+  loadCustomRooms();
   initAdmin();
   buildGrid();
   initFilters();

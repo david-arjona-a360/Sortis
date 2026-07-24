@@ -456,6 +456,7 @@ body {
   <span class="re-label">Room Editor:</span>
   <span class="re-status" id="re-status">Click a room to edit, or click two empty cells to draw a new room</span>
   <button class="btn btn-primary" id="re-draw-btn" onclick="startDrawRoom()" style="font-size:11px;padding:3px 10px">Draw New Room</button>
+  <button class="btn btn-danger" id="re-cancel-draw-btn" onclick="cancelDraw()" style="font-size:11px;padding:3px 10px;display:none">Cancel Draw</button>
   <button class="btn btn-danger" id="re-delete-btn" onclick="deleteSelectedRoom()" style="font-size:11px;padding:3px 10px;display:none">Delete Room</button>
   <button class="btn btn-secondary" onclick="resetCustomRooms()" style="font-size:11px;padding:3px 10px">Reset Rooms</button>
   <button class="btn btn-secondary" onclick="cancelRoomEditor()" style="font-size:11px;padding:3px 10px">Exit Editor</button>
@@ -1322,8 +1323,12 @@ function initModalClose() {
   });
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      closeModal();
-      document.getElementById('confirm-overlay').classList.remove('active');
+      if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
+        cancelDraw();
+      } else {
+        closeModal();
+        document.getElementById('confirm-overlay').classList.remove('active');
+      }
     }
   });
 }
@@ -1569,9 +1574,8 @@ function startDrawRoom() {
   roomEditorMode = 'draw-first';
   drawFirstCell = null;
   document.getElementById('re-status').textContent = 'Click first corner of the new room (any empty cell)';
-  document.getElementById('re-draw-btn').textContent = 'Click first corner...';
-  document.getElementById('re-draw-btn').disabled = true;
-  // Add visual hint to empty cells
+  document.getElementById('re-draw-btn').style.display = 'none';
+  document.getElementById('re-cancel-draw-btn').style.display = 'inline-block';
   document.querySelectorAll('.cell.empty, .cell.seat').forEach(function(c) {
     c.style.cursor = 'crosshair';
   });
@@ -1597,8 +1601,8 @@ function cancelDraw() {
   roomEditorMode = 'idle';
   drawFirstCell = null;
   document.getElementById('re-status').textContent = 'Click a room to edit, or click "Draw New Room"';
-  document.getElementById('re-draw-btn').textContent = 'Draw New Room';
-  document.getElementById('re-draw-btn').disabled = false;
+  document.getElementById('re-draw-btn').style.display = 'inline-block';
+  document.getElementById('re-cancel-draw-btn').style.display = 'none';
   document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
   document.querySelectorAll('.cell').forEach(function(c) { c.style.cursor = ''; });
 }

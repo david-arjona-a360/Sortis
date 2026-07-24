@@ -426,8 +426,8 @@ body {
 .room-editor-bar.active { display: flex; }
 .room-editor-bar .re-label { font-weight: 700; color: #e65100; text-transform: uppercase; }
 .room-editor-bar .re-status { font-weight: 600; color: #333; }
-.cell.room.editor-hover { outline: 3px solid #ff9800; outline-offset: -1px; }
-.cell.room.editor-selected { outline: 3px solid #dc1e28; outline-offset: -1px; }
+.cell.room.editor-hover { outline: 3px solid #ff9800; outline-offset: -1px; box-shadow: 0 0 8px rgba(255,152,0,0.5); z-index: 20; }
+.cell.room.editor-selected { outline: 3px solid #dc1e28; outline-offset: -1px; box-shadow: 0 0 8px rgba(220,30,40,0.5); z-index: 20; }
 .cell.editor-target { outline: 2px dashed #ff9800; outline-offset: -1px; background: rgba(255,152,0,0.15) !important; }
 </style>
 </head>
@@ -1524,18 +1524,54 @@ function onRoomEditorClick(e) {
     return;
   }
 
-  if (cell.classList.contains('room')) {
-    selectRoomForEdit(cell);
+  // In idle mode, try to find a room at this position
+  var room = findRoomAt(rc.row, rc.col);
+  if (room) {
+    selectedRoom = room;
+    document.getElementById('re-delete-btn').style.display = room._custom ? 'inline-block' : 'none';
+    document.getElementById('re-status').textContent = 'Selected: ' + room.name + ' (' + (room.max_col-room.min_col+1) + 'x' + (room.max_row-room.min_row+1) + ')';
+    // Highlight the selected room
+    document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+    highlightRoom(room);
+    showEditRoomForm(room);
     return;
   }
+}
+
+function findRoomAt(row, col) {
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  // Check custom rooms first (they override static rooms)
+  for (var i = customRooms.length - 1; i >= 0; i--) {
+    var r = customRooms[i];
+    if (row >= r.min_row && row <= r.max_row && col >= r.min_col && col <= r.max_col) return r;
+  }
+  // Then check static rooms
+  for (var j = 0; j < STATIC_DATA.rooms.length; j++) {
+    var r2 = STATIC_DATA.rooms[j];
+    if (row >= r2.min_row && row <= r2.max_row && col >= r2.min_col && col <= r2.max_col) return r2;
+  }
+  return null;
+}
+
+function highlightRoom(room) {
+  document.querySelectorAll('.cell.room').forEach(function(cell) {
+    var rc = getCellRC(cell);
+    if (rc.row >= room.min_row && rc.row <= room.max_row && rc.col >= room.min_col && rc.col <= room.max_col) {
+      cell.classList.add('editor-selected');
+    }
+  });
 }
 
 function startDrawRoom() {
   roomEditorMode = 'draw-first';
   drawFirstCell = null;
-  document.getElementById('re-status').textContent = 'Click first corner of the new room';
-  document.getElementById('re-draw-btn').textContent = 'Drawing...';
+  document.getElementById('re-status').textContent = 'Click first corner of the new room (any empty cell)';
+  document.getElementById('re-draw-btn').textContent = 'Click first corner...';
   document.getElementById('re-draw-btn').disabled = true;
+  // Add visual hint to empty cells
+  document.querySelectorAll('.cell.empty, .cell.seat').forEach(function(c) {
+    c.style.cursor = 'crosshair';
+  });
 }
 
 function showNewRoomForm(r1, c1, r2, c2) {
@@ -1561,6 +1597,7 @@ function cancelDraw() {
   document.getElementById('re-draw-btn').textContent = 'Draw New Room';
   document.getElementById('re-draw-btn').disabled = false;
   document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
+  document.querySelectorAll('.cell').forEach(function(c) { c.style.cursor = ''; });
 }
 
 function saveNewRoom(r1, c1, r2, c2) {

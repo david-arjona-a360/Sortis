@@ -429,6 +429,23 @@ body {
 .cell.room.editor-hover { outline: 3px solid #ff9800; outline-offset: -1px; box-shadow: 0 0 8px rgba(255,152,0,0.5); z-index: 20; }
 .cell.room.editor-selected { outline: 3px solid #dc1e28; outline-offset: -1px; box-shadow: 0 0 8px rgba(220,30,40,0.5); z-index: 20; }
 .cell.editor-target { outline: 2px dashed #ff9800; outline-offset: -1px; background: rgba(255,152,0,0.15) !important; }
+.cell.room.dragging { opacity: 0.3; }
+.room-ghost {
+  position: absolute; pointer-events: none; z-index: 50;
+  border: 2px dashed #4caf50; background: rgba(76,175,80,0.2);
+  border-radius: 3px; transition: none;
+}
+.room-ghost.invalid { border-color: #f44336; background: rgba(244,67,54,0.2); }
+.cell.room.edge-n { cursor: n-resize; }
+.cell.room.edge-s { cursor: s-resize; }
+.cell.room.edge-e { cursor: e-resize; }
+.cell.room.edge-w { cursor: w-resize; }
+.cell.room.edge-nw { cursor: nw-resize; }
+.cell.room.edge-ne { cursor: ne-resize; }
+.cell.room.edge-sw { cursor: sw-resize; }
+.cell.room.edge-se { cursor: se-resize; }
+.cell.room.edge-move { cursor: grab; }
+.cell.room.dragging { cursor: grabbing; }
 </style>
 </head>
 <body>
@@ -462,7 +479,7 @@ body {
   <button class="btn btn-secondary" onclick="cancelRoomEditor()" style="font-size:11px;padding:3px 10px">Exit Editor</button>
 </div>
 <div id="legend"></div>
-<div id="grid-container"><div id="grid"></div></div>
+<div id="grid-container"><div id="grid"></div><div id="room-ghost" class="room-ghost" style="display:none"></div></div>
 <div id="modal-overlay">
   <div id="modal">
     <div id="modal-header">
@@ -1323,7 +1340,9 @@ function initModalClose() {
   });
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
+      if (dragState) {
+        endDrag(e);
+      } else if (typeof roomEditorMode !== 'undefined' && roomEditorMode !== 'idle') {
         cancelDraw();
       } else {
         closeModal();
@@ -1458,32 +1477,18 @@ function cancelRoomEditor() {
   roomEditorMode = 'idle';
   drawFirstCell = null;
   selectedRoom = null;
+  dragState = null;
   document.getElementById('room-editor-bar').classList.remove('active');
   document.getElementById('btn-room-editor').textContent = 'Edit Rooms';
   document.getElementById('btn-room-editor').classList.remove('btn-danger');
   document.getElementById('btn-room-editor').classList.add('btn-secondary');
   document.getElementById('re-delete-btn').style.display = 'none';
   document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
+  document.getElementById('room-ghost').style.display = 'none';
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', endDrag);
   removeRoomEditorListeners();
   refreshGrid();
-}
-
-function addRoomEditorListeners() {
-  var cells = document.querySelectorAll('.cell');
-  cells.forEach(function(cell) {
-    cell.addEventListener('click', onRoomEditorClick);
-    cell.addEventListener('mouseenter', onRoomEditorHover);
-    cell.addEventListener('mouseleave', onRoomEditorLeave);
-  });
-}
-
-function removeRoomEditorListeners() {
-  var cells = document.querySelectorAll('.cell');
-  cells.forEach(function(cell) {
-    cell.removeEventListener('click', onRoomEditorClick);
-    cell.removeEventListener('mouseenter', onRoomEditorHover);
-    cell.removeEventListener('mouseleave', onRoomEditorLeave);
-  });
 }
 
 function getCellRC(cell) {
@@ -1510,6 +1515,7 @@ function onRoomEditorLeave(e) {
 
 function onRoomEditorClick(e) {
   if (!roomEditorActive) return;
+  if (wasDragged) return;
   e.stopPropagation();
   var cell = e.target;
   var rc = getCellRC(cell);
@@ -1729,7 +1735,319 @@ function resetCustomRooms() {
   toast('Rooms reset to defaults', 'info');
 }
 
-function initAdmin() {
+// ============================================================
+// DRAG AND DROP: Move/resize rooms by dragging
+// ============================================================
+var dragState = null;
+var DRAG_THRESHOLD = 4;
+var MIN_ROOM_SIZE = 2;
+var wasDragged = false;
+
+function getGridCoords(clientX, clientY) {
+  var grid = document.getElementById('grid');
+  var rect = grid.getBoundingClientRect();
+  var cellW = 42 + 1;
+  var cellH = 26 + 1;
+  var col = Math.floor((clientX - rect.left) / cellW) + 1;
+  var row = Math.floor((clientY - rect.top) / cellH) + 1;
+  col = Math.max(1, Math.min(col, 27));
+  row = Math.max(1, Math.min(row, 76));
+  return { row: row, col: col };
+}
+
+function getRoomEdge(room, clientX, clientY) {
+  var grid = document.getElementById('grid');
+  var rect = grid.getBoundingClientRect();
+  var cellW = 42 + 1;
+  var cellH = 26 + 1;
+  var threshold = 8;
+
+  var roomLeft = (room.min_col - 1) * cellW + rect.left;
+  var roomRight = room.max_col * cellW + rect.left;
+  var roomTop = (room.min_row - 1) * cellH + rect.top;
+  var roomBottom = room.max_row * cellH + rect.top;
+
+  var nearTop = clientY - roomTop < threshold && clientY >= roomTop - 2;
+  var nearBottom = roomBottom - clientY < threshold && clientY <= roomBottom + 2;
+  var nearLeft = clientX - roomLeft < threshold && clientX >= roomLeft - 2;
+  var nearRight = roomRight - clientX < threshold && clientX <= roomRight + 2;
+
+  if (nearTop && nearLeft) return 'nw';
+  if (nearTop && nearRight) return 'ne';
+  if (nearBottom && nearLeft) return 'sw';
+  if (nearBottom && nearRight) return 'se';
+  if (nearTop) return 'n';
+  if (nearBottom) return 's';
+  if (nearLeft) return 'w';
+  if (nearRight) return 'e';
+  return null;
+}
+
+function getEdgeCursor(edge) {
+  var map = { n:'n-resize', s:'s-resize', e:'e-resize', w:'w-resize', nw:'nw-resize', ne:'ne-resize', sw:'sw-resize', se:'se-resize' };
+  return map[edge] || 'grab';
+}
+
+function updateRoomEdgeCursors() {
+  if (!roomEditorActive || roomEditorMode !== 'idle') return;
+  document.querySelectorAll('.cell.room').forEach(function(cell) {
+    var rc = getCellRC(cell);
+    var room = findRoomAt(rc.row, rc.col);
+    if (!room) return;
+    cell.classList.remove('edge-n','edge-s','edge-e','edge-w','edge-nw','edge-ne','edge-sw','edge-se','edge-move');
+  });
+}
+
+function createGhost(room, r1, c1, r2, c2) {
+  var ghost = document.getElementById('room-ghost');
+  var grid = document.getElementById('grid');
+  var gridRect = grid.getBoundingClientRect();
+  var container = document.getElementById('grid-container');
+  var containerRect = container.getBoundingClientRect();
+  var cellW = 42 + 1;
+  var cellH = 26 + 1;
+
+  var x = (c1 - 1) * cellW;
+  var y = (r1 - 1) * cellH;
+  var w = (c2 - c1 + 1) * cellW - 1;
+  var h = (r2 - r1 + 1) * cellH - 1;
+
+  ghost.style.display = 'block';
+  ghost.style.left = x + 'px';
+  ghost.style.top = y + 'px';
+  ghost.style.width = w + 'px';
+  ghost.style.height = h + 'px';
+  ghost.textContent = room.name;
+  ghost.style.display = 'flex';
+  ghost.style.alignItems = 'center';
+  ghost.style.justifyContent = 'center';
+  ghost.style.fontSize = '12px';
+  ghost.style.fontWeight = '600';
+  ghost.style.color = '#333';
+}
+
+function checkRoomCollision(excludeRoom, r1, c1, r2, c2) {
+  if (r1 < 1 || c1 < 1 || r2 > 76 || c2 > 27) return true;
+  var allRooms = STATIC_DATA.rooms.concat(customRooms);
+  for (var i = 0; i < allRooms.length; i++) {
+    var r = allRooms[i];
+    if (r === excludeRoom) continue;
+    if (r === selectedRoom) continue;
+    if (r1 <= r.max_row && r2 >= r.min_row && c1 <= r.max_col && c2 >= r.min_col) return true;
+  }
+  return false;
+}
+
+function startDrag(e, room, edge) {
+  var startCoord = getGridCoords(e.clientX, e.clientY);
+  dragState = {
+    room: room,
+    type: edge ? 'resize' : 'move',
+    edge: edge,
+    startMouse: { x: e.clientX, y: e.clientY },
+    startCoord: startCoord,
+    startBounds: { min_row: room.min_row, min_col: room.min_col, max_row: room.max_row, max_col: room.max_col },
+    currentBounds: null,
+    moved: false
+  };
+
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+  e.preventDefault();
+}
+
+function onDrag(e) {
+  if (!dragState) return;
+
+  var dx = e.clientX - dragState.startMouse.x;
+  var dy = e.clientY - dragState.startMouse.y;
+
+  if (!dragState.moved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+  dragState.moved = true;
+
+  var startCoord = dragState.startCoord;
+  var b = dragState.startBounds;
+  var room = dragState.room;
+
+  if (!dragState.startedVisual) {
+    dragState.startedVisual = true;
+    document.querySelectorAll('.cell.room').forEach(function(cell) {
+      var rc = getCellRC(cell);
+      if (rc.row >= b.min_row && rc.row <= b.max_row && rc.col >= b.min_col && rc.col <= b.max_col) {
+        cell.classList.add('dragging');
+      }
+    });
+  }
+
+  var delta = getGridCoords(e.clientX, e.clientY);
+  var dRow = delta.row - startCoord.row;
+  var dCol = delta.col - startCoord.col;
+
+  var nr1, nc1, nr2, nc2;
+  if (dragState.type === 'move') {
+    nr1 = b.min_row + dRow;
+    nc1 = b.min_col + dCol;
+    nr2 = b.max_row + dRow;
+    nc2 = b.max_col + dCol;
+  } else {
+    nr1 = b.min_row;
+    nc1 = b.min_col;
+    nr2 = b.max_row;
+    nc2 = b.max_col;
+    var edge = dragState.edge;
+    if (edge === 'n' || edge === 'nw' || edge === 'ne') nr1 = b.min_row + dRow;
+    if (edge === 's' || edge === 'sw' || edge === 'se') nr2 = b.max_row + dRow;
+    if (edge === 'w' || edge === 'nw' || edge === 'sw') nc1 = b.min_col + dCol;
+    if (edge === 'e' || edge === 'ne' || edge === 'se') nc2 = b.max_col + dCol;
+
+    if (nr2 - nr1 + 1 < MIN_ROOM_SIZE) {
+      if (edge === 'n' || edge === 'nw' || edge === 'ne') nr1 = nr2 - MIN_ROOM_SIZE + 1;
+      else nr2 = nr1 + MIN_ROOM_SIZE - 1;
+    }
+    if (nc2 - nc1 + 1 < MIN_ROOM_SIZE) {
+      if (edge === 'w' || edge === 'nw' || edge === 'sw') nc1 = nc2 - MIN_ROOM_SIZE + 1;
+      else nc2 = nc1 + MIN_ROOM_SIZE - 1;
+    }
+  }
+
+  if (nr1 < 1 || nc1 < 1 || nr2 > 76 || nc2 > 27) {
+    createGhost(room, b.min_row, b.min_col, b.max_row, b.max_col);
+    document.getElementById('room-ghost').classList.add('invalid');
+    dragState.currentBounds = null;
+    document.getElementById('re-status').textContent = 'Out of bounds!';
+    return;
+  }
+
+  var collision = checkRoomCollision(room, nr1, nc1, nr2, nc2);
+  var ghost = document.getElementById('room-ghost');
+  createGhost(room, nr1, nc1, nr2, nc2);
+  if (collision) {
+    ghost.classList.add('invalid');
+    dragState.currentBounds = null;
+    document.getElementById('re-status').textContent = 'Cannot place here (overlaps another room)';
+  } else {
+    ghost.classList.remove('invalid');
+    dragState.currentBounds = { min_row: nr1, min_col: nc1, max_row: nr2, max_col: nc2 };
+    var dims = (nc2 - nc1 + 1) + 'x' + (nr2 - nr1 + 1);
+    document.getElementById('re-status').textContent = 'Drop to place: ' + dims + ' (press Esc to cancel)';
+  }
+}
+
+function endDrag(e) {
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', endDrag);
+
+  if (!dragState) return;
+
+  var ghost = document.getElementById('room-ghost');
+  ghost.style.display = 'none';
+  ghost.classList.remove('invalid');
+
+  document.querySelectorAll('.cell.room.dragging').forEach(function(c) { c.classList.remove('dragging'); });
+
+  if (dragState.moved && dragState.currentBounds) {
+    var nb = dragState.currentBounds;
+    var room = dragState.room;
+    wasDragged = true;
+    setTimeout(function() { wasDragged = false; }, 300);
+
+    if (!room._custom) {
+      var newRoom = {
+        name: room.name,
+        min_row: nb.min_row, min_col: nb.min_col,
+        max_row: nb.max_row, max_col: nb.max_col,
+        _custom: true
+      };
+      customRooms.push(newRoom);
+    } else {
+      room.min_row = nb.min_row;
+      room.min_col = nb.min_col;
+      room.max_row = nb.max_row;
+      room.max_col = nb.max_col;
+    }
+    saveCustomRooms();
+    refreshGrid();
+    addRoomEditorListeners();
+    toast('Room moved: ' + room.name, 'success');
+  }
+
+  dragState = null;
+}
+
+function onRoomEditorMouseMove(e) {
+  if (!roomEditorActive || roomEditorMode !== 'idle' || dragState) return;
+  var cell = e.target;
+  if (!cell.classList.contains('room')) {
+    document.querySelectorAll('.cell.room').forEach(function(c) {
+      c.classList.remove('edge-n','edge-s','edge-e','edge-w','edge-nw','edge-ne','edge-sw','edge-se','edge-move');
+    });
+    return;
+  }
+  var rc = getCellRC(cell);
+  var room = findRoomAt(rc.row, rc.col);
+  if (!room) return;
+
+  var edge = getRoomEdge(room, e.clientX, e.clientY);
+  document.querySelectorAll('.cell.room').forEach(function(c) {
+    c.classList.remove('edge-n','edge-s','edge-e','edge-w','edge-nw','edge-ne','edge-sw','edge-se','edge-move');
+  });
+
+  if (edge) {
+    var cells = document.querySelectorAll('.cell.room');
+    cells.forEach(function(c) {
+      var r = getCellRC(c);
+      if (r.row >= room.min_row && r.row <= room.max_row && r.col >= room.min_col && r.col <= room.max_col) {
+        c.classList.add('edge-' + edge);
+      }
+    });
+  } else {
+    var cells2 = document.querySelectorAll('.cell.room');
+    cells2.forEach(function(c) {
+      var r = getCellRC(c);
+      if (r.row >= room.min_row && r.row <= room.max_row && r.col >= room.min_col && r.col <= room.max_col) {
+        c.classList.add('edge-move');
+      }
+    });
+  }
+}
+
+function onRoomEditorMouseDown(e) {
+  if (!roomEditorActive || roomEditorMode !== 'idle') return;
+  var cell = e.target;
+  if (!cell.classList.contains('room')) return;
+
+  var rc = getCellRC(cell);
+  var room = findRoomAt(rc.row, rc.col);
+  if (!room) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  var edge = getRoomEdge(room, e.clientX, e.clientY);
+  startDrag(e, room, edge);
+}
+
+function addRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.addEventListener('click', onRoomEditorClick);
+    cell.addEventListener('mouseenter', onRoomEditorHover);
+    cell.addEventListener('mouseleave', onRoomEditorLeave);
+    cell.addEventListener('mousedown', onRoomEditorMouseDown);
+    cell.addEventListener('mousemove', onRoomEditorMouseMove);
+  });
+}
+
+function removeRoomEditorListeners() {
+  var cells = document.querySelectorAll('.cell');
+  cells.forEach(function(cell) {
+    cell.removeEventListener('click', onRoomEditorClick);
+    cell.removeEventListener('mouseenter', onRoomEditorHover);
+    cell.removeEventListener('mouseleave', onRoomEditorLeave);
+    cell.removeEventListener('mousedown', onRoomEditorMouseDown);
+    cell.removeEventListener('mousemove', onRoomEditorMouseMove);
+  });
+}
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
     document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';

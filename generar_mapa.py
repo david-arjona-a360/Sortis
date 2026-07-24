@@ -1528,7 +1528,7 @@ function onRoomEditorClick(e) {
   var room = findRoomAt(rc.row, rc.col);
   if (room) {
     selectedRoom = room;
-    document.getElementById('re-delete-btn').style.display = room._custom ? 'inline-block' : 'none';
+    document.getElementById('re-delete-btn').style.display = 'inline-block';
     document.getElementById('re-status').textContent = 'Selected: ' + room.name + ' (' + (room.max_col-room.min_col+1) + 'x' + (room.max_row-room.min_row+1) + ')';
     // Highlight the selected room
     document.querySelectorAll('.editor-selected').forEach(function(c) { c.classList.remove('editor-selected'); });
@@ -1670,37 +1670,48 @@ function saveEditRoom() {
   if (!name || !r1 || !c1 || !r2 || !c2) { toast('All fields required', 'error'); return; }
   if (r1 > r2 || c1 > c2) { toast('Invalid range', 'error'); return; }
 
-  selectedRoom.name = name;
-  selectedRoom.min_row = r1;
-  selectedRoom.min_col = c1;
-  selectedRoom.max_row = r2;
-  selectedRoom.max_col = c2;
-
   if (selectedRoom._custom) {
-    saveCustomRooms();
+    // Update existing custom room
+    selectedRoom.name = name;
+    selectedRoom.min_row = r1;
+    selectedRoom.min_col = c1;
+    selectedRoom.max_row = r2;
+    selectedRoom.max_col = c2;
   } else {
-    var idx = STATIC_DATA.rooms.indexOf(selectedRoom);
-    if (idx >= 0) STATIC_DATA.rooms[idx] = selectedRoom;
+    // Static room → create a custom override
+    var newRoom = {
+      name: name,
+      min_row: r1, min_col: c1,
+      max_row: r2, max_col: c2,
+      _custom: true
+    };
+    customRooms.push(newRoom);
   }
+  saveCustomRooms();
 
   closeModal();
   selectedRoom = null;
   refreshGrid();
   addRoomEditorListeners();
-  toast('Room updated: ' + name, 'success');
+  toast('Room saved: ' + name, 'success');
 }
 
 function deleteSelectedRoom() {
-  if (!selectedRoom || !selectedRoom._custom) { toast('Can only delete custom rooms', 'error'); return; }
+  if (!selectedRoom) return;
   var name = selectedRoom.name;
-  customRooms = customRooms.filter(function(r) { return r !== selectedRoom; });
-  saveCustomRooms();
+  if (selectedRoom._custom) {
+    customRooms = customRooms.filter(function(r) { return r !== selectedRoom; });
+    saveCustomRooms();
+    toast('Room deleted: ' + name, 'info');
+  } else {
+    toast('Cannot delete original rooms', 'error');
+    return;
+  }
   selectedRoom = null;
   closeModal();
   document.getElementById('re-delete-btn').style.display = 'none';
   refreshGrid();
   addRoomEditorListeners();
-  toast('Room deleted: ' + name, 'info');
 }
 
 function resetCustomRooms() {

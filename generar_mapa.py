@@ -266,7 +266,7 @@ body {
   font-weight: 600; text-align: center; line-height: 1.2;
   color: #333; padding: 2px 3px;
 }
-.cell.room.narrow { font-size: 9px; writing-mode: vertical-rl; text-orientation: mixed; }
+.cell.room.narrow { font-size: 7px; }
 .cell.seat {
   cursor: pointer; border: 1px solid rgba(0,0,0,0.1);
   font-size: 10px; font-weight: 700; color: #333; z-index: 1;
@@ -411,6 +411,13 @@ body {
 .admin-panel .admin-label {
   font-weight: 700; color: #e65100; text-transform: uppercase;
 }
+.color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.color-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #f5f5f5; border-radius: 6px; }
+.color-item label { font-size: 12px; font-weight: 600; color: #555; flex: 1; min-width: 0; }
+.color-item input[type="color"] { width: 36px; height: 28px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; padding: 0; }
+.color-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+.color-section-title { font-size: 13px; font-weight: 700; color: #333; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #dc1e28; }
 </style>
 </head>
 <body>
@@ -430,6 +437,7 @@ body {
   <span class="admin-label">Admin Mode</span>
   <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
   <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
+  <button class="btn btn-secondary" onclick="showColorPickerModal()" style="font-size:12px;padding:4px 12px">Customize Colors</button>
   <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
 </div>
 <div id="legend"></div>
@@ -457,21 +465,21 @@ body {
 <div id="tooltip"></div>
 <script>
 var DEPT_COLORS = {
-  Finance: '#c8e6c9', IT: '#bbdefb', ENS: '#ffe0b2', Title: '#e1bee7',
-  IBC: '#fff9c4', CaseAware: '#f8bbd0', VS360: '#b2dfdb', 'Firm Solutions': '#dcedc8'
+  Finance: '#50505a', IT: '#dc1e28', ENS: '#f5c6cb', Title: '#6c757d',
+  IBC: '#d6d8db', CaseAware: '#e78c92', VS360: '#a8323b', 'Firm Solutions': '#bfc1c5'
 };
 var DEPARTMENTS = ['Finance', 'IT', 'ENS', 'Title', 'IBC', 'CaseAware', 'VS360', 'Firm Solutions'];
 var ROOM_COLORS = {
-  COMEDOR: '#a5d6a7', ARCHIVE: '#bcaaa4', 'CUARTO DE IT': '#81d4fa',
-  'BA\\u00d1O DE MUJERES': '#bdbdbd', 'BA\\u00d1O DE HOMBRES': '#bdbdbd',
-  LOCKERS: '#cfd8dc', 'SALA DE ENTRENAMIENTO': '#90caf9',
-  'SALA DE REUNIONES': '#ce93d8', RECEPCION: '#80cbc4',
-  'CUARTO ELECTRICO': '#b0bec5', 'CUARTO DE A/C': '#b0bec5',
-  'CUARTO A/C': '#b0bec5', 'OFICINA DE IT': '#b3e5fc',
-  'DEPOSITO IT': '#b3e5fc', 'WAR ROOM': '#ef9a9a',
-  'OFICINA GERENCIA': '#ffcc80', 'OFICINA DE GERENCIA 03': '#ffab91',
-  'OFICINA DE GERENCIA 06': '#ff8a65',
-  'HR162': '#a1887f', Supervisor: '#ffe082'
+  COMEDOR: '#f5c6cb', ARCHIVE: '#d6d8db', 'CUARTO DE IT': '#e78c92',
+  'BA\\u00d1O DE MUJERES': '#bfc1c5', 'BA\\u00d1O DE HOMBRES': '#bfc1c5',
+  LOCKERS: '#e8e8ec', 'SALA DE ENTRENAMIENTO': '#dc1e28',
+  'SALA DE REUNIONES': '#a8323b', RECEPCION: '#6c757d',
+  'CUARTO ELECTRICO': '#d6d8db', 'CUARTO DE A/C': '#d6d8db',
+  'CUARTO A/C': '#d6d8db', 'OFICINA DE IT': '#e78c92',
+  'DEPOSITO IT': '#e78c92', 'WAR ROOM': '#dc1e28',
+  'OFICINA GERENCIA': '#50505a', 'OFICINA DE GERENCIA 03': '#6c757d',
+  'OFICINA DE GERENCIA 06': '#6c757d',
+  'HR162': '#a8323b', Supervisor: '#50505a'
 };
 
 var SHAREPOINT_SITE = '';
@@ -1296,6 +1304,92 @@ function initModalClose() {
   });
 }
 
+// ============================================================
+// COLOR PICKER: Customize department and room colors
+// ============================================================
+var DEFAULT_DEPT_COLORS = JSON.parse(JSON.stringify(DEPT_COLORS));
+var DEFAULT_ROOM_COLORS = JSON.parse(JSON.stringify(ROOM_COLORS));
+
+function loadCustomColors() {
+  try {
+    var saved = localStorage.getItem('sortis_custom_colors');
+    if (saved) {
+      var data = JSON.parse(saved);
+      if (data.dept) { for (var k in data.dept) { DEPT_COLORS[k] = data.dept[k]; } }
+      if (data.room) { for (var k in data.room) { ROOM_COLORS[k] = data.room[k]; } }
+    }
+  } catch(e) {}
+}
+
+function saveCustomColors(deptColors, roomColors) {
+  localStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
+}
+
+function resetColors() {
+  for (var k in DEFAULT_DEPT_COLORS) { DEPT_COLORS[k] = DEFAULT_DEPT_COLORS[k]; }
+  for (var k in DEFAULT_ROOM_COLORS) { ROOM_COLORS[k] = DEFAULT_ROOM_COLORS[k]; }
+  localStorage.removeItem('sortis_custom_colors');
+  refreshGrid();
+  initLegend();
+  toast('Colors reset to defaults', 'info');
+}
+
+function showColorPickerModal() {
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Customize Colors';
+  var h = '';
+
+  h += '<div class="color-section-title">Department Colors</div>';
+  h += '<div class="color-grid">';
+  var deptKeys = Object.keys(DEPT_COLORS).sort();
+  for (var i = 0; i < deptKeys.length; i++) {
+    var d = deptKeys[i];
+    h += '<div class="color-item"><label>' + d + '</label>';
+    h += '<input type="color" id="dc-' + d.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + DEPT_COLORS[d] + '"></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="color-section-title">Room Colors</div>';
+  h += '<div class="color-grid">';
+  var roomKeys = Object.keys(ROOM_COLORS).sort();
+  for (var j = 0; j < roomKeys.length; j++) {
+    var r = roomKeys[j];
+    h += '<div class="color-item"><label>' + r + '</label>';
+    h += '<input type="color" id="rc-' + r.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + ROOM_COLORS[r] + '"></div>';
+  }
+  h += '</div>';
+
+  h += '<div class="modal-actions">';
+  h += '<button class="btn btn-danger" onclick="resetColors(); closeModal();">Reset Defaults</button>';
+  h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
+  h += '<button class="btn btn-primary" onclick="applyColorPicker()">Apply</button>';
+  h += '</div>';
+  body.innerHTML = h;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function applyColorPicker() {
+  var newDept = {};
+  var deptKeys = Object.keys(DEFAULT_DEPT_COLORS).sort();
+  for (var i = 0; i < deptKeys.length; i++) {
+    var d = deptKeys[i];
+    var el = document.getElementById('dc-' + d.replace(/[^a-zA-Z0-9]/g, '_'));
+    if (el) { newDept[d] = el.value; DEPT_COLORS[d] = el.value; }
+  }
+  var newRoom = {};
+  var roomKeys = Object.keys(DEFAULT_ROOM_COLORS).sort();
+  for (var j = 0; j < roomKeys.length; j++) {
+    var r = roomKeys[j];
+    var el2 = document.getElementById('rc-' + r.replace(/[^a-zA-Z0-9]/g, '_'));
+    if (el2) { newRoom[r] = el2.value; ROOM_COLORS[r] = el2.value; }
+  }
+  saveCustomColors(newDept, newRoom);
+  closeModal();
+  refreshGrid();
+  initLegend();
+  toast('Colors updated', 'success');
+}
+
 function initAdmin() {
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
@@ -1369,6 +1463,7 @@ async function seedSharePointData() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  loadCustomColors();
   initAdmin();
   buildGrid();
   initFilters();

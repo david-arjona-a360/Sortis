@@ -2048,6 +2048,8 @@ function removeRoomEditorListeners() {
     cell.removeEventListener('mousemove', onRoomEditorMouseMove);
   });
 }
+
+function initAdmin() {
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
     document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';

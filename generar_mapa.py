@@ -648,6 +648,13 @@ function buildGrid() {
       grid.appendChild(d);
     }
   }
+  if (!document.getElementById('room-ghost')) {
+    var ghost = document.createElement('div');
+    ghost.id = 'room-ghost';
+    ghost.className = 'room-ghost';
+    ghost.style.display = 'none';
+    grid.appendChild(ghost);
+  }
 }
 
 function showModal(seat) {

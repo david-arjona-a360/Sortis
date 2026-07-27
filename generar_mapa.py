@@ -593,18 +593,17 @@ function buildGrid() {
     roomOrigin[r.min_row + ',' + r.min_col] = r;
     for (var rr = r.min_row; rr <= r.max_row; rr++) {
       for (var cc = r.min_col; cc <= r.max_col; cc++) {
-        if (rr !== r.min_row || cc !== r.min_col) covered[rr + ',' + cc] = 1;
+        covered[rr + ',' + cc] = 1;
       }
     }
   });
   for (var row = 1; row <= STATIC_DATA.grid_rows; row++) {
     for (var col = 1; col <= STATIC_DATA.grid_cols; col++) {
       var key = row + ',' + col;
-      var d = document.createElement('div');
-      d.className = 'cell';
       var origin = roomOrigin[key];
       if (origin) {
-        d.className += ' room';
+        var d = document.createElement('div');
+        d.className = 'cell room';
         d.style.background = getRoomColor(origin.name);
         d.style.gridRow = origin.min_row + '/' + (origin.max_row + 1);
         d.style.gridColumn = origin.min_col + '/' + (origin.max_col + 1);
@@ -616,17 +615,12 @@ function buildGrid() {
         grid.appendChild(d);
         continue;
       }
-      if (covered[key]) {
-        d.className += ' empty';
-        d.style.gridRow = row;
-        d.style.gridColumn = col;
-        grid.appendChild(d);
-        continue;
-      }
+      if (covered[key]) continue;
       var seat = seatMap[key];
       if (seat) {
+        var d = document.createElement('div');
         var dept = seat.person ? seat.person.department : null;
-        d.className += ' seat';
+        d.className = 'cell seat';
         d.style.background = getDeptColor(dept);
         d.style.gridRow = row;
         d.style.gridColumn = col;
@@ -650,7 +644,8 @@ function buildGrid() {
         grid.appendChild(d);
         continue;
       }
-      d.className += ' empty';
+      var d = document.createElement('div');
+      d.className = 'cell empty';
       d.style.gridRow = row;
       d.style.gridColumn = col;
       grid.appendChild(d);
@@ -1468,6 +1463,11 @@ function loadCustomRooms() {
     var saved = localStorage.getItem('sortis_custom_rooms');
     if (saved) customRooms = JSON.parse(saved);
   } catch(e) { customRooms = []; }
+  var staticNames = {};
+  STATIC_DATA.rooms.forEach(function(r) { staticNames[r.name.trim().toUpperCase()] = true; });
+  customRooms = customRooms.filter(function(r) {
+    return !staticNames[(r.name || '').trim().toUpperCase()];
+  });
 }
 
 function saveCustomRooms() {

@@ -16,8 +16,7 @@ EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
 
-GRID_ROWS = 76
-GRID_COLS = 27
+
 
 
 def fix_encoding(s):
@@ -59,8 +58,8 @@ def read_floor_plan(wb):
             room_cells.append(info)
 
     seat_positions = []
-    for row in range(1, GRID_ROWS + 1):
-        for col in range(1, GRID_COLS + 1):
+    for row in range(1, ws.max_row + 1):
+        for col in range(1, ws.max_column + 1):
             key = (row, col)
             if key in merged_map:
                 continue
@@ -76,7 +75,16 @@ def read_floor_plan(wb):
                 except (ValueError, TypeError):
                     pass
 
-    return room_cells, seat_positions
+    max_content_row = 1
+    max_content_col = 1
+    for info in room_cells:
+        max_content_row = max(max_content_row, info["max_row"])
+        max_content_col = max(max_content_col, info["max_col"])
+    for s in seat_positions:
+        max_content_row = max(max_content_row, s["row"])
+        max_content_col = max(max_content_col, s["col"])
+
+    return room_cells, seat_positions, max_content_row, max_content_col
 
 
 def read_seats_allocation(wb):
@@ -173,7 +181,7 @@ def build_brigadistas(seats_with_people):
     return sorted(brig.keys())
 
 
-def generate_html(static_json, data_json):
+def generate_html(static_json, data_json, grid_rows, grid_cols):
     return '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -248,8 +256,8 @@ body {
 }
 #grid {
   display: grid;
-  grid-template-columns: repeat(''' + str(GRID_COLS) + ''', var(--cell-w));
-  grid-template-rows: repeat(''' + str(GRID_ROWS) + ''', var(--cell-h));
+  grid-template-columns: repeat(''' + str(grid_cols) + ''', var(--cell-w));
+  grid-template-rows: repeat(''' + str(grid_rows) + ''', var(--cell-h));
   gap: var(--gap);
   width: fit-content;
   margin: 0 auto;
@@ -589,8 +597,8 @@ function buildGrid() {
       }
     }
   });
-  for (var row = 1; row <= 76; row++) {
-    for (var col = 1; col <= 27; col++) {
+  for (var row = 1; row <= STATIC_DATA.grid_rows; row++) {
+    for (var col = 1; col <= STATIC_DATA.grid_cols; col++) {
       var key = row + ',' + col;
       var d = document.createElement('div');
       d.className = 'cell';
@@ -1666,13 +1674,13 @@ function showEditRoomForm(room) {
   var h = '<div class="form-group"><label>Room Name</label>';
   h += '<input type="text" id="edit-room-name" value="' + room.name.replace(/"/g, '&quot;') + '"></div>';
   h += '<div class="form-group"><label>Top-Left Row</label>';
-  h += '<input type="number" id="edit-room-r1" value="' + room.min_row + '" min="1" max="76"></div>';
+  h += '<input type="number" id="edit-room-r1" value="' + room.min_row + '" min="1" max="' + STATIC_DATA.grid_rows + '"></div>';
   h += '<div class="form-group"><label>Top-Left Column</label>';
-  h += '<input type="number" id="edit-room-c1" value="' + room.min_col + '" min="1" max="27"></div>';
+  h += '<input type="number" id="edit-room-c1" value="' + room.min_col + '" min="1" max="' + STATIC_DATA.grid_cols + '"></div>';
   h += '<div class="form-group"><label>Bottom-Right Row</label>';
-  h += '<input type="number" id="edit-room-r2" value="' + room.max_row + '" min="1" max="76"></div>';
+  h += '<input type="number" id="edit-room-r2" value="' + room.max_row + '" min="1" max="' + STATIC_DATA.grid_rows + '"></div>';
   h += '<div class="form-group"><label>Bottom-Right Column</label>';
-  h += '<input type="number" id="edit-room-c2" value="' + room.max_col + '" min="1" max="27"></div>';
+  h += '<input type="number" id="edit-room-c2" value="' + room.max_col + '" min="1" max="' + STATIC_DATA.grid_cols + '"></div>';
   h += '<div class="modal-actions">';
   h += '<button class="btn btn-secondary" onclick="closeModal()">Cancel</button>';
   h += '<button class="btn btn-primary" onclick="saveEditRoom()">Save</button>';
@@ -1758,8 +1766,8 @@ function getGridCoords(clientX, clientY) {
   var cellH = 26 + 1;
   var col = Math.floor((clientX - rect.left) / cellW) + 1;
   var row = Math.floor((clientY - rect.top) / cellH) + 1;
-  col = Math.max(1, Math.min(col, 27));
-  row = Math.max(1, Math.min(row, 76));
+  col = Math.max(1, Math.min(col, STATIC_DATA.grid_cols));
+  row = Math.max(1, Math.min(row, STATIC_DATA.grid_rows));
   return { row: row, col: col };
 }
 
@@ -1831,7 +1839,7 @@ function createGhost(room, r1, c1, r2, c2) {
 }
 
 function checkRoomCollision(excludeRoom, r1, c1, r2, c2) {
-  if (r1 < 1 || c1 < 1 || r2 > 76 || c2 > 27) return true;
+  if (r1 < 1 || c1 < 1 || r2 > STATIC_DATA.grid_rows || c2 > STATIC_DATA.grid_cols) return true;
   var allRooms = STATIC_DATA.rooms.concat(customRooms);
   for (var i = 0; i < allRooms.length; i++) {
     var r = allRooms[i];
@@ -1914,7 +1922,7 @@ function onDrag(e) {
     }
   }
 
-  if (nr1 < 1 || nc1 < 1 || nr2 > 76 || nc2 > 27) {
+  if (nr1 < 1 || nc1 < 1 || nr2 > STATIC_DATA.grid_rows || nc2 > STATIC_DATA.grid_cols) {
     createGhost(room, b.min_row, b.min_col, b.max_row, b.max_col);
     document.getElementById('room-ghost').classList.add('invalid');
     dragState.currentBounds = null;
@@ -2148,8 +2156,9 @@ def main():
     wb = openpyxl.load_workbook(EXCEL_PATH)
 
     print("Parseando plano...")
-    room_cells, seat_positions = read_floor_plan(wb)
+    room_cells, seat_positions, grid_rows, grid_cols = read_floor_plan(wb)
     print(f"  Salas: {len(room_cells)}, Puestos en plano: {len(seat_positions)}")
+    print(f"  Grid: {grid_rows} rows x {grid_cols} cols")
 
     print("Parseando asignacion...")
     seats_alloc = read_seats_allocation(wb)
@@ -2176,6 +2185,8 @@ def main():
     static_data = {
         "rooms": room_cells,
         "seat_positions": seat_positions,
+        "grid_rows": grid_rows,
+        "grid_cols": grid_cols,
     }
 
     # Full data (for JSON export and local mode)
@@ -2196,7 +2207,7 @@ def main():
 
     static_json = json.dumps(static_data, ensure_ascii=False)
     data_json = json.dumps(output, ensure_ascii=False)
-    html = generate_html(static_json, data_json)
+    html = generate_html(static_json, data_json, grid_rows, grid_cols)
     with open(HTML_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")

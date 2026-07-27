@@ -140,5 +140,6 @@ Columns: A=Seat No, B=Nombre, C=Departamento
 - [x] Auto-detect grid dimensions from Excel
 - [x] Deploy folder for SharePoint
 - [x] SharePoint Lists integration removed (simplified)
+- [x] PTY Users & Roles.xlsx integration (source of truth for person data)
 - [ ] Test with managers
 - [ ] Upload to SharePoint

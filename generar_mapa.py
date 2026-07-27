@@ -13,6 +13,7 @@ import openpyxl
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
+PTY_USERS_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - PTY Users\PTY Users & Roles.xlsx"
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
 DEPLOY_PATH = os.path.join(SCRIPT_DIR, "deploy", "floor_plan.html")
@@ -120,19 +121,21 @@ def read_seats_allocation(wb):
     return seats, all_people
 
 
-def join_data(seat_positions, seats_alloc):
+def join_data(seat_positions, seats_alloc, pty_users):
     result = []
     for sp in seat_positions:
         seat_no = sp["seat_no"]
         info = seats_alloc.get(seat_no, None)
         person = None
         if info and info["name"] and info["name"] != "-":
+            pty = pty_users.get(info["name"], {})
             person = {
                 "name": info["name"],
                 "brigadista": info["brigadista"],
                 "notas": info["notas"],
-                "department": info.get("department"),
-                "title": info.get("title"),
+                "department": pty.get("department") or info.get("department"),
+                "title": pty.get("title") or info.get("title"),
+                "email": pty.get("email"),
             }
         result.append({
             "row": sp["row"],
@@ -144,25 +147,11 @@ def join_data(seat_positions, seats_alloc):
     return result
 
 
-def build_people_directory(seats_with_people, all_people):
-    seen = {}
-    for s in seats_with_people:
-        if s["person"] and s["person"]["name"]:
-            name = s["person"]["name"]
-            if name not in seen:
-                seen[name] = {
-                    "name": name,
-                    "department": s["person"].get("department"),
-                    "title": s["person"].get("title"),
-                }
-    for name, info in all_people.items():
-        if name not in seen:
-            seen[name] = {
-                "name": name,
-                "department": info.get("department"),
-                "title": info.get("title"),
-            }
-    return sorted(seen.values(), key=lambda x: x["name"])
+def build_people_directory(pty_users):
+    return sorted([
+        {"name": name, "department": info.get("department"), "title": info.get("title"), "email": info.get("email")}
+        for name, info in pty_users.items()
+    ], key=lambda x: x["name"])
 
 
 def build_brigadistas(seats_with_people):
@@ -174,6 +163,30 @@ def build_brigadistas(seats_with_people):
                 brig[b] = 0
             brig[b] += 1
     return sorted(brig.keys())
+
+
+def read_pty_users():
+    if not os.path.exists(PTY_USERS_PATH):
+        print(f"  WARNING: PTY Users not found at {PTY_USERS_PATH}")
+        return {}
+    wb = openpyxl.load_workbook(PTY_USERS_PATH, read_only=True, data_only=True)
+    ws = wb["PTY Users"]
+    people = {}
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        first, last, title, div, email = row[0], row[1], row[2], row[3], row[4]
+        if not first or not last:
+            continue
+        name = fix_encoding(f"{first} {last}".strip())
+        dept = fix_encoding(str(div).strip()) if div else None
+        title_str = fix_encoding(str(title).strip()) if title else None
+        email_str = fix_encoding(str(email).strip()) if email else None
+        people[name] = {
+            "department": dept,
+            "title": title_str,
+            "email": email_str,
+        }
+    wb.close()
+    return people
 
 
 def generate_html(static_json, data_json, grid_rows, grid_cols):
@@ -2159,16 +2172,17 @@ def main():
     seats_alloc, all_people = read_seats_allocation(wb)
     print(f"  Registros: {len(seats_alloc)}")
 
-    seats_with_people = join_data(seat_positions, seats_alloc)
+    print("Leyendo PTY Users...")
+    pty_users = read_pty_users()
+    print(f"  Personas: {len(pty_users)}")
+
+    seats_with_people = join_data(seat_positions, seats_alloc, pty_users)
     occupied = sum(1 for s in seats_with_people if s["person"] is not None)
     print(f"  Ocupados: {occupied}/{len(seats_with_people)}")
 
-    departments = set()
-    for s in seats_with_people:
-        if s["person"] and s["person"]["department"]:
-            departments.add(s["person"]["department"])
+    departments = sorted(set(info.get("department") for info in pty_users.values() if info.get("department")))
 
-    people_directory = build_people_directory(seats_with_people, all_people)
+    people_directory = build_people_directory(pty_users)
     brigadistas = build_brigadistas(seats_with_people)
     timestamp = datetime.now().isoformat()
 

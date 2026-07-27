@@ -16,7 +16,6 @@ EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
 DEPLOY_PATH = os.path.join(SCRIPT_DIR, "deploy", "floor_plan.html")
-SHAREPOINT_SITE_URL = "https://a360inc.sharepoint.com/sites/PTYFiles/"
 
 
 
@@ -183,7 +182,7 @@ def build_brigadistas(seats_with_people):
     return sorted(brig.keys())
 
 
-def generate_html(static_json, data_json, grid_rows, grid_cols, sharepoint_site=''):
+def generate_html(static_json, data_json, grid_rows, grid_cols):
     return '''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -236,12 +235,6 @@ body {
   font-size: 12px; background: rgba(255,255,255,0.15);
   padding: 4px 12px; border-radius: 12px; white-space: nowrap;
 }
-#sp-status {
-  font-size: 11px; padding: 3px 8px; border-radius: 8px;
-  background: rgba(76,175,80,0.3); border: 1px solid rgba(76,175,80,0.5);
-  white-space: nowrap; display: none;
-}
-#sp-status.connected { display: inline-block; }
 #legend {
   background: #fff; padding: 6px 20px;
   display: flex; align-items: center; gap: 12px;
@@ -469,7 +462,6 @@ body {
     <select id="filter-brig"><option value="all">Todos</option></select>
     <input type="text" id="search" placeholder="Buscar persona...">
     <span id="counter">Cargando...</span>
-    <span id="sp-status" class="connected">Conectado a SharePoint</span>
   </div>
 </div>
 <div id="admin-panel" class="admin-panel">
@@ -478,7 +470,6 @@ body {
   <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
   <button class="btn btn-secondary" onclick="showColorPickerModal()" style="font-size:12px;padding:4px 12px">Customize Colors</button>
   <button class="btn btn-secondary" onclick="toggleRoomEditor()" id="btn-room-editor" style="font-size:12px;padding:4px 12px">Edit Rooms</button>
-  <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
 </div>
 <div id="room-editor-bar" class="room-editor-bar">
   <span class="re-label">Room Editor:</span>
@@ -531,19 +522,12 @@ var ROOM_COLORS = {
   'HR162': '#a8323b', Supervisor: '#50505a'
 };
 
-var SHAREPOINT_SITE = ''' + ("'" + sharepoint_site + "'" if sharepoint_site else "''") + ''';
-var PEOPLE_LIST = 'People';
-var SEATS_LIST = 'Seats';
-
 var STATIC_DATA = ''' + static_json + ''';
 var DATA = ''' + data_json + ''';
 
-var isSharePoint = SHAREPOINT_SITE.length > 0;
 var isAdmin = new URLSearchParams(window.location.search).has('admin');
 var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
 var hasChanges = false;
-var spPeople = [];
-var spSeats = [];
 
 function getDeptColor(d) { return d && DEPT_COLORS[d] ? DEPT_COLORS[d] : '#e0e0e0'; }
 function getRoomColor(name) {
@@ -1087,197 +1071,6 @@ function removeBrigadista(name) {
   showManageBrigadistasModal();
   toast('Brigadista removed: ' + name, 'info');
   autoSave();
-}
-
-// ============================================================
-// SHAREPOINT LISTS API
-// ============================================================
-function getDigest() {
-  var d = document.querySelector('#__REQUESTDIGEST');
-  return d ? d.value : '';
-}
-
-function spGet(listName) {
-  if (!isSharePoint) return Promise.resolve([]);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items?$top=5000";
-  return fetch(url, {
-    headers: { 'Accept': 'application/json;odata=verbose' }
-  }).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(data) {
-    return data.d.results || [];
-  });
-}
-
-function spCreate(listName, itemData) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest()
-    },
-    body: JSON.stringify(itemData)
-  }).then(function(r) { return r.json(); });
-}
-
-function spUpdate(listName, itemId, itemData) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest(),
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'MERGE'
-    },
-    body: JSON.stringify(itemData)
-  });
-}
-
-function spDelete(listName, itemId) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest(),
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'DELETE'
-    }
-  });
-}
-
-function loadFromSharePointLists() {
-  if (!isSharePoint) return;
-  document.getElementById('sp-status').classList.add('connected');
-
-  Promise.all([spGet(PEOPLE_LIST), spGet(SEATS_LIST)]).then(function(results) {
-    spPeople = results[0];
-    spSeats = results[1];
-
-    // Build people_directory from People list
-    var peopleDir = [];
-    spPeople.forEach(function(item) {
-      peopleDir.push({
-        name: item.Title || '',
-        department: item.Department || '',
-        title: item.JobTitle || '',
-        _spId: item.Id
-      });
-    });
-    LOCAL_DATA.people_directory = peopleDir;
-
-    // Build brigadistas from People list (filter Status = Brigadista or separate logic)
-    // For now, keep existing brigadistas logic
-
-    // Build seats from Seats list + static seat_positions
-    var seatMap = {};
-    spSeats.forEach(function(item) {
-      seatMap[item.Title] = {
-        name: item.PersonName || null,
-        brigadista: item.Brigadista || null,
-        notas: item.Notas || null,
-        _spId: item.Id
-      };
-    });
-
-    LOCAL_DATA.seats = STATIC_DATA.seat_positions.map(function(sp) {
-      var seatNo = sp.seat_no;
-      var alloc = seatMap[seatNo];
-      var person = null;
-      if (alloc && alloc.name) {
-        var pd = null;
-        for (var i = 0; i < peopleDir.length; i++) {
-          if (peopleDir[i].name === alloc.name) { pd = peopleDir[i]; break; }
-        }
-        person = {
-          name: alloc.name,
-          brigadista: alloc.brigadista,
-          notas: alloc.notas,
-          department: pd ? pd.department : null,
-          title: pd ? pd.title : null
-        };
-      }
-      return {
-        row: sp.row,
-        col: sp.col,
-        seat_no: seatNo,
-        person: person,
-        brigadista: alloc ? alloc.brigadista : null
-      };
-    });
-
-    // Update departments
-    var depts = {};
-    LOCAL_DATA.seats.forEach(function(s) {
-      if (s.person && s.person.department) depts[s.person.department] = 1;
-    });
-    LOCAL_DATA.departments = Object.keys(depts).sort();
-
-    // Update brigadistas
-    var brig = {};
-    LOCAL_DATA.seats.forEach(function(s) {
-      if (s.brigadista) brig[s.brigadista] = 1;
-    });
-    LOCAL_DATA.brigadistas = Object.keys(brig).sort();
-
-    refreshGrid();
-    toast('Data loaded from SharePoint Lists', 'success');
-  }).catch(function(err) {
-    console.error('SharePoint load error:', err);
-    toast('Could not connect to SharePoint, using local data', 'info');
-  });
-}
-
-function saveToSharePointLists() {
-  if (!isSharePoint || !hasChanges) return;
-
-  // Save each seat assignment
-  var promises = [];
-  LOCAL_DATA.seats.forEach(function(seat) {
-    var spSeat = null;
-    for (var i = 0; i < spSeats.length; i++) {
-      if (spSeats[i].Title === seat.seat_no) { spSeat = spSeats[i]; break; }
-    }
-
-    if (seat.person) {
-      var data = {
-        Title: seat.seat_no,
-        PersonName: seat.person.name || '',
-        Brigadista: seat.brigadista || '',
-        Notas: seat.person.notas || ''
-      };
-      if (spSeat) {
-        promises.push(spUpdate(SEATS_LIST, spSeat.Id, data));
-      } else {
-        promises.push(spCreate(SEATS_LIST, data));
-      }
-    } else if (spSeat) {
-      promises.push(spDelete(SEATS_LIST, spSeat.Id));
-    }
-  });
-
-  Promise.all(promises).then(function() {
-    hasChanges = false;
-    toast('Changes saved to SharePoint', 'success');
-  }).catch(function(err) {
-    console.error('SharePoint save error:', err);
-    toast('Error saving to SharePoint', 'error');
-  });
-}
-
-var saveTimeout = null;
-function autoSave() {
-  if (!isSharePoint) return;
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(function() { saveToSharePointLists(); }, 2000);
 }
 
 function updateCounter() {
@@ -2067,72 +1860,7 @@ function initAdmin() {
   if (isAdmin) {
     document.getElementById('admin-panel').classList.add('visible');
     document.getElementById('grid-container').style.height = 'calc(100vh - 115px)';
-    if (isSharePoint) {
-      document.getElementById('btn-seed').style.display = 'inline-block';
-    }
   }
-}
-
-// ============================================================
-// SEED DATA: Populate SharePoint Lists from embedded data
-// ============================================================
-async function seedSharePointData() {
-  if (!isSharePoint) { toast('SharePoint not configured', 'error'); return; }
-  var people = DATA.people_directory || [];
-  var seats = DATA.seats || [];
-  var confirmMsg = 'This will create ' + people.length + ' people and ' + seats.filter(function(s){return s.person}).length + ' seat assignments in SharePoint Lists. Continue?';
-  if (!confirm(confirmMsg)) return;
-
-  var btn = document.getElementById('btn-seed');
-  btn.disabled = true;
-  btn.textContent = 'Seeding...';
-  var created = 0;
-  var errors = 0;
-
-  try {
-    // Seed People
-    toast('Creating people records...', 'info');
-    for (var i = 0; i < people.length; i++) {
-      var p = people[i];
-      try {
-        await spCreate(PEOPLE_LIST, {
-          Title: p.name,
-          Department: p.department || '',
-          JobTitle: p.title || '',
-          Status: 'Active'
-        });
-        created++;
-      } catch(e) { errors++; }
-    }
-    toast('People: ' + created + ' created, ' + errors + ' errors', 'success');
-
-    // Seed Seats
-    var seatCreated = 0;
-    var seatErrors = 0;
-    toast('Creating seat assignments...', 'info');
-    for (var j = 0; j < seats.length; j++) {
-      var s = seats[j];
-      if (!s.person || !s.person.name) continue;
-      try {
-        await spCreate(SEATS_LIST, {
-          Title: s.seat_no,
-          PersonName: s.person.name,
-          Brigadista: s.brigadista || '',
-          Notas: s.person.notas || ''
-        });
-        seatCreated++;
-      } catch(e) { seatErrors++; }
-    }
-    toast('Seats: ' + seatCreated + ' created, ' + seatErrors + ' errors', 'success');
-
-    btn.textContent = 'Seed Complete!';
-    btn.style.background = '#2e7d32';
-  } catch(e) {
-    toast('Seed failed: ' + e.message, 'error');
-    btn.textContent = 'Seed Failed';
-    btn.style.background = '#c62828';
-  }
-  btn.disabled = false;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -2144,9 +1872,6 @@ document.addEventListener('DOMContentLoaded', function() {
   initLegend();
   initModalClose();
   updateCounter();
-  if (isSharePoint) {
-    loadFromSharePointLists();
-  }
 });
 </script>
 </body>
@@ -2214,7 +1939,7 @@ def main():
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")
 
-    html_deploy = generate_html(static_json, data_json, grid_rows, grid_cols, sharepoint_site=SHAREPOINT_SITE_URL)
+    html_deploy = generate_html(static_json, data_json, grid_rows, grid_cols)
     os.makedirs(os.path.dirname(DEPLOY_PATH), exist_ok=True)
     with open(DEPLOY_PATH, "w", encoding="utf-8") as f:
         f.write(html_deploy)

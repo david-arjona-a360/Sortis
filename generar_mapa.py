@@ -15,6 +15,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(SCRIPT_DIR, "SORTIS_FLOOR_PLAN.xlsx")
 JSON_PATH = os.path.join(SCRIPT_DIR, "floor_plan_data.json")
 HTML_PATH = os.path.join(SCRIPT_DIR, "floor_plan.html")
+DEPLOY_PATH = os.path.join(SCRIPT_DIR, "deploy", "floor_plan.html")
 
 
 
@@ -2201,6 +2202,12 @@ def main():
     with open(HTML_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"HTML: {HTML_PATH} ({os.path.getsize(HTML_PATH):,} bytes)")
+
+    os.makedirs(os.path.dirname(DEPLOY_PATH), exist_ok=True)
+    with open(DEPLOY_PATH, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"DEPLOY: {DEPLOY_PATH} ({os.path.getsize(DEPLOY_PATH):,} bytes)")
+
     print(f"Timestamp: {timestamp}")
     print(f"Personas en directorio: {len(people_directory)}")
     print(f"Brigadistas: {len(brigadistas)}")

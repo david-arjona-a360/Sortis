@@ -91,54 +91,48 @@ def read_floor_plan(wb):
 def read_seats_allocation(wb):
     ws = wb["Seats Allocation"]
     seats = {}
+    all_people = {}
     for row in range(2, ws.max_row + 1):
         seat_no_raw = ws.cell(row, 1).value
         name = ws.cell(row, 2).value
         brigadista = ws.cell(row, 3).value
         notas = ws.cell(row, 4).value
         department = ws.cell(row, 5).value
+        title = ws.cell(row, 6).value
+        name_str = fix_encoding(str(name).strip()) if name else None
+        dept_str = fix_encoding(str(department).strip()) if department else None
+        title_str = fix_encoding(str(title).strip()) if title else None
+        if name_str and name_str != "-":
+            all_people[name_str] = {
+                "department": dept_str,
+                "title": title_str,
+            }
         seat_key = normalize_seat_no(seat_no_raw)
         if seat_key is None:
             continue
         seats[seat_key] = {
-            "name": fix_encoding(str(name).strip()) if name else None,
+            "name": name_str,
             "brigadista": fix_encoding(str(brigadista).strip()) if brigadista else None,
             "notas": fix_encoding(str(notas).strip()) if notas else None,
-            "department": fix_encoding(str(department).strip()) if department else None,
+            "department": dept_str,
+            "title": title_str,
         }
-    return seats
+    return seats, all_people
 
 
-def read_sheet1(wb):
-    ws = wb["Sheet1"]
-    people = {}
-    for row in range(1, ws.max_row + 1):
-        name = ws.cell(row, 1).value
-        dept = ws.cell(row, 2).value
-        title = ws.cell(row, 3).value
-        if name:
-            key = fix_encoding(str(name).strip())
-            people[key] = {
-                "department": fix_encoding(str(dept).strip()) if dept else None,
-                "title": fix_encoding(str(title).strip()) if title else None,
-            }
-    return people
-
-
-def join_data(seat_positions, seats_alloc, people):
+def join_data(seat_positions, seats_alloc):
     result = []
     for sp in seat_positions:
         seat_no = sp["seat_no"]
         info = seats_alloc.get(seat_no, None)
         person = None
         if info and info["name"] and info["name"] != "-":
-            p = people.get(info["name"], None)
             person = {
                 "name": info["name"],
                 "brigadista": info["brigadista"],
                 "notas": info["notas"],
-                "department": info.get("department") or (p["department"] if p else None),
-                "title": p["title"] if p else None,
+                "department": info.get("department"),
+                "title": info.get("title"),
             }
         result.append({
             "row": sp["row"],
@@ -150,7 +144,7 @@ def join_data(seat_positions, seats_alloc, people):
     return result
 
 
-def build_people_directory(seats_with_people, people_sheet):
+def build_people_directory(seats_with_people, all_people):
     seen = {}
     for s in seats_with_people:
         if s["person"] and s["person"]["name"]:
@@ -161,7 +155,7 @@ def build_people_directory(seats_with_people, people_sheet):
                     "department": s["person"].get("department"),
                     "title": s["person"].get("title"),
                 }
-    for name, info in people_sheet.items():
+    for name, info in all_people.items():
         if name not in seen:
             seen[name] = {
                 "name": name,
@@ -1888,14 +1882,10 @@ def main():
     print(f"  Grid: {grid_rows} rows x {grid_cols} cols")
 
     print("Parseando asignacion...")
-    seats_alloc = read_seats_allocation(wb)
+    seats_alloc, all_people = read_seats_allocation(wb)
     print(f"  Registros: {len(seats_alloc)}")
 
-    print("Parseando personas...")
-    people = read_sheet1(wb)
-    print(f"  Personas: {len(people)}")
-
-    seats_with_people = join_data(seat_positions, seats_alloc, people)
+    seats_with_people = join_data(seat_positions, seats_alloc)
     occupied = sum(1 for s in seats_with_people if s["person"] is not None)
     print(f"  Ocupados: {occupied}/{len(seats_with_people)}")
 
@@ -1904,7 +1894,7 @@ def main():
         if s["person"] and s["person"]["department"]:
             departments.add(s["person"]["department"])
 
-    people_directory = build_people_directory(seats_with_people, people)
+    people_directory = build_people_directory(seats_with_people, all_people)
     brigadistas = build_brigadistas(seats_with_people)
     timestamp = datetime.now().isoformat()
 

@@ -1,46 +1,49 @@
 # SORTIS - Interactive Office Map Piso 7
 
 ## Objective
-Create an interactive web app (self-contained HTML/JS) that displays the SORTIS Piso 7 office floor plan, showing person info at each seat on click. Managers can edit assignments and person data from the app. The app is the source of truth (not Excel).
+Create an interactive web app (self-contained HTML/JS) that displays the SORTIS Piso 7 office floor plan, showing person info at each seat on click. Managers can edit assignments and person data from the app. Excel is the source of truth — user edits Excel, runs `python generar_mapa.py`, uploads to SharePoint.
 
 ## GitHub
 https://github.com/david-arjona-a360/Sortis
 
 ## Source Files
-- **Excel**: `C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx`
+- **Excel (local copy)**: `C:\PY_projects\SORTIS\SORTIS_FLOOR_PLAN.xlsx` (copy of OneDrive original)
+- **Excel (OneDrive original)**: `C:\Users\david.arjona\OneDrive - a360inc\PTY Files - Documents\FLOOR PLAN\SORTIS_FLOOR_PLAN.xlsx` (do NOT edit directly)
 - **PDF** (analyzed, NOT used): `A02_DISTRIBUCIÓN_OSO (2).pdf`
 
 ## Architecture
 
-### Local Mode (no SharePoint)
+### Single-Source Model (current)
+- **Excel is the source of truth** — user edits Excel, runs `python generar_mapa.py`
 - `generar_mapa.py` reads Excel → generates JSON + HTML with embedded data
-- HTML works with `file://` or any static server
-
-### SharePoint Mode (production)
-- HTML is embedded in SharePoint Site Page via Embed web part
-- **SharePoint Lists** store all data (People + Seats)
-- HTML reads/writes via SharePoint Lists REST API (cookie auth, no Azure AD)
-- Changes reflect immediately
-- SharePoint handles version history automatically
+- HTML works with `file://`, SharePoint, or any static server
+- To update data: edit Excel → run `python generar_mapa.py` → upload `deploy/floor_plan.html` to SharePoint
 
 ### Data Architecture
 ```
+Excel Sheets:
+  Floor Plan        → Room definitions + seat grid positions (static)
+  Seats Allocation  → Person assignments, department, title, brigadista, notas (single source of truth)
+  Brigadistas       → Brigadista names (backup, also read from Seats Allocation)
+
 Static Data (embedded in HTML):
-  - rooms: 26 room definitions with positions
+  - rooms: 25 room definitions with positions
   - seat_positions: 162 seat grid positions
 
-Dynamic Data (loaded from SharePoint Lists):
-  - People List: name, department, job title, status
-  - Seats List: seat number, person name, brigadista, notes
+Dynamic Data (embedded in HTML):
+  - seats: array of seats with assigned people
+  - departments: list of unique departments
+  - brigadistas: list of unique brigadistas
+  - people_directory: directory of all persons (name, dept, title)
 ```
 
-### To activate SharePoint Mode
-In `floor_plan.html`, update:
-```javascript
-var SHAREPOINT_SITE = '/sites/YOURSITE/';
-var PEOPLE_LIST = 'People';
-var SEATS_LIST = 'Seats';
-```
+Admin Mode (`?admin=true`):
+  - Edit person data (name, department, title, notes)
+  - Add new person to empty seat
+  - Manage brigadistas (add/remove)
+  - Draw/edit/delete rooms on the floor plan
+  - Customize department colors (localStorage)
+  - Data saved to HTML (regenerate from Excel to reset)
 
 ## Excel Structure
 
@@ -50,8 +53,8 @@ Visual grid of the office. Merged cells = rooms/areas. Individual cells = number
 **Main areas:**
 COMEDOR, RECEPCION, SALA DE REUNIONES, SALA DE ENTRENAMIENTO, OFICINA DE IT, OFICINA GERENCIA 01-06, CUARTO DE IT, ARCHIVE, WAR ROOM, BAÑOS, LOCKERS, CUARTO A/C, CUARTO ELECTRICO, HR162, Supervisors 163-165
 
-### Sheet "Seats Allocation" (176 rows)
-Columns: A=Seat No., B=Name, C=Brigadista, D=Notas-Salud, E=Department
+### Sheet "Seats Allocation" (210 rows)
+Columns: A=Seat No., B=Name, C=Brigadista, D=Notas-Salud, E=Department, F=Title
 
 ### Sheet "Sheet1" (47 rows)
 Columns: A=Name, B=Department, C=Title
@@ -106,7 +109,8 @@ Columns: A=Seat No, B=Nombre, C=Departamento
 |------|-------------|
 | `generar_mapa.py` | Reads Excel, generates JSON + HTML |
 | `floor_plan.html` | Interactive map (auto-generated) |
-| `migrate_to_sharepoint.py` | One-time migration: Excel → SharePoint Lists |
+| `deploy/floor_plan.html` | SharePoint deployment copy (auto-generated) |
+| `compare_grid.py` | Data verification script |
 | `.gitignore` | Excludes JSON, xlsx, cache |
 | `CHANGELOG.md` | Version history |
 | `PROGRESO.md` | This document |
@@ -125,15 +129,17 @@ Columns: A=Seat No, B=Nombre, C=Departamento
 ## Status
 - [x] Complete Excel analysis (4 sheets, merged cells, colors, positions)
 - [x] PDF analysis (concluded: structural blueprint, not usable)
-- [x] Original plan approved and executed
 - [x] generar_mapa.py with people_directory, timestamp, brigadistas
-- [x] floor_plan.html with edit, SharePoint REST API, brigadista filter
+- [x] floor_plan.html with edit, brigadista filter
 - [x] .gitignore updated
 - [x] Departamento column support in Seats Allocation
-- [x] SharePoint Lists migration script
-- [x] HTML migrated to SharePoint Lists API
+- [x] Title column (F) in Seats Allocation
 - [x] Admin panel with edit person, add person, manage brigadistas
-- [ ] Create SharePoint Lists (People, Seats)
-- [ ] Run migration script
-- [ ] Configure SHAREPOINT_SITE in HTML
+- [x] Single-source model: Seats Allocation only (Sheet1 eliminated)
+- [x] Room editor (draw/edit/delete rooms)
+- [x] Department color customization
+- [x] Auto-detect grid dimensions from Excel
+- [x] Deploy folder for SharePoint
+- [x] SharePoint Lists integration removed (simplified)
 - [ ] Test with managers
+- [ ] Upload deploy/floor_plan.html to SharePoint

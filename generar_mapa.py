@@ -253,6 +253,7 @@ body {
   gap: var(--gap);
   width: fit-content;
   margin: 0 auto;
+  position: relative;
 }
 .cell {
   border-radius: 2px; display: flex; align-items: center;
@@ -479,7 +480,7 @@ body {
   <button class="btn btn-secondary" onclick="cancelRoomEditor()" style="font-size:11px;padding:3px 10px">Exit Editor</button>
 </div>
 <div id="legend"></div>
-<div id="grid-container"><div id="grid"></div><div id="room-ghost" class="room-ghost" style="display:none"></div></div>
+<div id="grid-container"><div id="grid"><div id="room-ghost" class="room-ghost" style="display:none"></div></div></div>
 <div id="modal-overlay">
   <div id="modal">
     <div id="modal-header">
@@ -1800,10 +1801,6 @@ function updateRoomEdgeCursors() {
 
 function createGhost(room, r1, c1, r2, c2) {
   var ghost = document.getElementById('room-ghost');
-  var grid = document.getElementById('grid');
-  var gridRect = grid.getBoundingClientRect();
-  var container = document.getElementById('grid-container');
-  var containerRect = container.getBoundingClientRect();
   var cellW = 42 + 1;
   var cellH = 26 + 1;
 

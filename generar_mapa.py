@@ -319,7 +319,8 @@ body {
   transform: scale(1.3); box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 10;
 }
 .cell.seat.dimmed {
-  opacity: 0.15; transform: none !important; box-shadow: none !important;
+  opacity: 0.25; pointer-events: none; cursor: default;
+  transform: none !important; box-shadow: none !important;
 }
 .cell.seat .seat-label { pointer-events: none; line-height: 1; }
 .cell.seat .person-dot {

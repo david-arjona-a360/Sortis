@@ -520,10 +520,11 @@ body {
 <div id="tooltip"></div>
 <script>
 var DEPT_COLORS = {
-  Finance: '#50505a', IT: '#dc1e28', ENS: '#f5c6cb', Title: '#6c757d',
-  IBC: '#d6d8db', CaseAware: '#e78c92', VS360: '#a8323b', 'Firm Solutions': '#bfc1c5'
+  ADM: '#50505a', ENS: '#f5c6cb', Finance: '#50505a', FS: '#bfc1c5',
+  IBC: '#d6d8db', IT: '#dc1e28', POCPro: '#d6d8db', ProVest: '#f5c6cb',
+  'ProVest F&A': '#e78c92', VS360: '#a8323b'
 };
-var DEPARTMENTS = ['Finance', 'IT', 'ENS', 'Title', 'IBC', 'CaseAware', 'VS360', 'Firm Solutions'];
+var DEPARTMENTS = DATA.departments;
 var ROOM_COLORS = {
   COMEDOR: '#f5c6cb', ARCHIVE: '#d6d8db', 'CUARTO DE IT': '#e78c92',
   'BA\\u00d1O DE MUJERES': '#bfc1c5', 'BA\\u00d1O DE HOMBRES': '#bfc1c5',

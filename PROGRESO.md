@@ -141,5 +141,7 @@ Columns: A=Seat No, B=Nombre, C=Departamento
 - [x] Deploy folder for SharePoint
 - [x] SharePoint Lists integration removed (simplified)
 - [x] PTY Users & Roles.xlsx integration (source of truth for person data)
+- [x] Department colors updated to match PTY Users departments
+- [x] DEPARTMENTS dynamic from PTY Users (auto-adds new depts)
 - [ ] Test with managers
 - [ ] Upload to SharePoint

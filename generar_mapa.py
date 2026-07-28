@@ -238,6 +238,13 @@ body {
 #topbar input:focus, #topbar select:focus {
   border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.25);
 }
+.filter-checkbox {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #fff; cursor: pointer; white-space: nowrap;
+}
+.filter-checkbox input[type="checkbox"] {
+  width: 14px; height: 14px; cursor: pointer; accent-color: #dc1e28;
+}
 #counter {
   font-size: 12px; background: rgba(255,255,255,0.15);
   padding: 4px 12px; border-radius: 12px; white-space: nowrap;
@@ -493,6 +500,7 @@ body {
     <select id="filter-dept"><option value="all">Todos</option></select>
     <label>Brigadista:</label>
     <select id="filter-brig"><option value="all">Todos</option></select>
+    <label class="filter-checkbox"><input type="checkbox" id="filter-unassigned"> Sin asignar</label>
     <input type="text" id="search" placeholder="Buscar persona...">
     <span id="counter">Cargando...</span>
     <span id="sp-status" class="connected">Conectado a SharePoint</span>
@@ -1365,11 +1373,15 @@ function applyFilters() {
   var seats = document.querySelectorAll('.cell.seat');
   var filterDept = document.getElementById('filter-dept').value;
   var filterBrig = document.getElementById('filter-brig').value;
+  var filterUnassigned = document.getElementById('filter-unassigned').checked;
   var search = document.getElementById('search').value.toLowerCase();
   seats.forEach(function(d) {
     var seatNo = d.querySelector('.seat-label').textContent;
     var s = getSeatByNo(seatNo);
     var show = true;
+    if (filterUnassigned) {
+      if (s && s.person) show = false;
+    }
     if (filterDept !== 'all') {
       if (s && s.person && s.person.department !== filterDept) show = false;
       if (s && !s.person) show = false;
@@ -1406,6 +1418,7 @@ function initFilters() {
   });
   selDept.addEventListener('change', applyFilters);
   selBrig.addEventListener('change', applyFilters);
+  document.getElementById('filter-unassigned').addEventListener('change', applyFilters);
   document.getElementById('search').addEventListener('input', applyFilters);
 }
 

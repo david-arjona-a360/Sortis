@@ -270,6 +270,26 @@ body {
   width: fit-content;
   margin: 0 auto;
   position: relative;
+  transform-origin: center center;
+  transition: transform 0.15s ease;
+}
+.zoom-controls {
+  position: fixed; bottom: 20px; right: 20px; z-index: 100;
+  display: flex; flex-direction: column; gap: 4px;
+  background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  padding: 4px;
+}
+.zoom-controls button {
+  width: 36px; height: 36px; border: none; border-radius: 6px;
+  background: #fff; color: #333; font-size: 18px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.zoom-controls button:hover { background: #e8e8e8; }
+.zoom-controls button:active { background: #d0d0d0; }
+.zoom-controls .zoom-level {
+  font-size: 11px; font-weight: 600; color: #555;
+  text-align: center; padding: 2px 0; user-select: none;
 }
 .cell {
   border-radius: 2px; display: flex; align-items: center;
@@ -497,6 +517,11 @@ body {
 </div>
 <div id="legend"></div>
 <div id="grid-container"><div id="grid"><div id="room-ghost" class="room-ghost" style="display:none"></div></div></div>
+<div class="zoom-controls">
+  <button onclick="zoomIn()" title="Zoom In">+</button>
+  <span class="zoom-level" id="zoom-level">100%</span>
+  <button onclick="zoomOut()" title="Zoom Out">&minus;</button>
+</div>
 <div id="modal-overlay">
   <div id="modal">
     <div id="modal-header">
@@ -551,6 +576,47 @@ var LOCAL_DATA = JSON.parse(JSON.stringify(DATA));
 var hasChanges = false;
 var spPeople = [];
 var spSeats = [];
+
+var zoomLevel = 100;
+var ZOOM_MIN = 50;
+var ZOOM_MAX = 200;
+var ZOOM_STEP = 10;
+
+function loadZoom() {
+  try {
+    var saved = localStorage.getItem('sortis_zoom_level');
+    if (saved) {
+      zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parseInt(saved) || 100));
+    }
+  } catch(e) {}
+}
+
+function saveZoom() {
+  try { localStorage.setItem('sortis_zoom_level', zoomLevel); } catch(e) {}
+}
+
+function applyZoom() {
+  var grid = document.getElementById('grid');
+  var scale = zoomLevel / 100;
+  grid.style.transform = 'scale(' + scale + ')';
+  document.getElementById('zoom-level').textContent = zoomLevel + '%';
+}
+
+function zoomIn() {
+  if (zoomLevel >= ZOOM_MAX) return;
+  zoomLevel = Math.min(ZOOM_MAX, zoomLevel + ZOOM_STEP);
+  applyZoom();
+  saveZoom();
+}
+
+function zoomOut() {
+  if (zoomLevel <= ZOOM_MIN) return;
+  zoomLevel = Math.max(ZOOM_MIN, zoomLevel - ZOOM_STEP);
+  applyZoom();
+  saveZoom();
+}
+
+function getZoomScale() { return zoomLevel / 100; }
 
 function getDeptColor(d) { return d && DEPT_COLORS[d] ? DEPT_COLORS[d] : '#e0e0e0'; }
 function getRoomColor(name) {
@@ -1369,6 +1435,9 @@ function initModalClose() {
         document.getElementById('confirm-overlay').classList.remove('active');
       }
     }
+    if (e.ctrlKey && (e.key === '+' || e.key === '=')) { e.preventDefault(); zoomIn(); }
+    if (e.ctrlKey && e.key === '-') { e.preventDefault(); zoomOut(); }
+    if (e.ctrlKey && e.key === '0') { e.preventDefault(); zoomLevel = 100; applyZoom(); saveZoom(); }
   });
 }
 
@@ -1771,8 +1840,9 @@ var wasDragged = false;
 function getGridCoords(clientX, clientY) {
   var grid = document.getElementById('grid');
   var rect = grid.getBoundingClientRect();
-  var cellW = 42 + 1;
-  var cellH = 26 + 1;
+  var scale = getZoomScale();
+  var cellW = (42 + 1) * scale;
+  var cellH = (26 + 1) * scale;
   var col = Math.floor((clientX - rect.left) / cellW) + 1;
   var row = Math.floor((clientY - rect.top) / cellH) + 1;
   col = Math.max(1, Math.min(col, STATIC_DATA.grid_cols));
@@ -1783,8 +1853,9 @@ function getGridCoords(clientX, clientY) {
 function getRoomEdge(room, clientX, clientY) {
   var grid = document.getElementById('grid');
   var rect = grid.getBoundingClientRect();
-  var cellW = 42 + 1;
-  var cellH = 26 + 1;
+  var scale = getZoomScale();
+  var cellW = (42 + 1) * scale;
+  var cellH = (26 + 1) * scale;
   var threshold = 8;
 
   var roomLeft = (room.min_col - 1) * cellW + rect.left;
@@ -2145,8 +2216,10 @@ async function seedSharePointData() {
 document.addEventListener('DOMContentLoaded', function() {
   loadCustomColors();
   loadCustomRooms();
+  loadZoom();
   initAdmin();
   buildGrid();
+  applyZoom();
   initFilters();
   initLegend();
   initModalClose();

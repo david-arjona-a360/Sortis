@@ -549,7 +549,6 @@ var DEPT_COLORS = {
   IBC: '#d6d8db', IT: '#dc1e28', POCPro: '#d6d8db', ProVest: '#f5c6cb',
   'ProVest F&A': '#e78c92', VS360: '#a8323b'
 };
-var DEPARTMENTS = DATA.departments;
 var ROOM_COLORS = {
   COMEDOR: '#f5c6cb', ARCHIVE: '#d6d8db', 'CUARTO DE IT': '#e78c92',
   'BA\\u00d1O DE MUJERES': '#bfc1c5', 'BA\\u00d1O DE HOMBRES': '#bfc1c5',
@@ -569,6 +568,7 @@ var SEATS_LIST = 'Seats';
 
 var STATIC_DATA = ''' + static_json + ''';
 var DATA = ''' + data_json + ''';
+var DEPARTMENTS = DATA.departments;
 
 var isSharePoint = SHAREPOINT_SITE.length > 0;
 var isAdmin = new URLSearchParams(window.location.search).has('admin');

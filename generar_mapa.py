@@ -581,6 +581,17 @@ var hasChanges = false;
 var spPeople = [];
 var spSeats = [];
 
+var safeLocalStorage = (function() {
+  try {
+    var t = 'test_' + Date.now();
+    safeLocalStorage.setItem(t, '1');
+    safeLocalStorage.removeItem(t);
+    return localStorage;
+  } catch (e) {
+    return { getItem: function() { return null; }, setItem: function() {}, removeItem: function() {} };
+  }
+})();
+
 var zoomLevel = 100;
 var ZOOM_MIN = 50;
 var ZOOM_MAX = 200;
@@ -588,7 +599,7 @@ var ZOOM_STEP = 10;
 
 function loadZoom() {
   try {
-    var saved = localStorage.getItem('sortis_zoom_level');
+    var saved = safeLocalStorage.getItem('sortis_zoom_level');
     if (saved) {
       zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parseInt(saved) || 100));
     }
@@ -596,7 +607,7 @@ function loadZoom() {
 }
 
 function saveZoom() {
-  try { localStorage.setItem('sortis_zoom_level', zoomLevel); } catch(e) {}
+  try { safeLocalStorage.setItem('sortis_zoom_level', zoomLevel); } catch(e) {}
 }
 
 function applyZoom() {
@@ -1231,9 +1242,9 @@ function generateRequestId() {
   var ds = now.getFullYear() +
     String(now.getMonth() + 1).padStart(2, '0') +
     String(now.getDate()).padStart(2, '0');
-  var stored = localStorage.getItem('sortis_req_counter') || '0';
+  var stored = safeLocalStorage.getItem('sortis_req_counter') || '0';
   var n = parseInt(stored, 10) + 1;
-  localStorage.setItem('sortis_req_counter', String(n));
+  safeLocalStorage.setItem('sortis_req_counter', String(n));
   return 'REQ-' + ds + '-' + String(n).padStart(3, '0');
 }
 
@@ -1303,25 +1314,25 @@ async function submitRequest() {
     } catch (e) {
       console.log('[SORTIS] SharePoint submission failed:', e.message);
       // SharePoint unavailable - save locally as fallback
-      var history = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+      var history = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
       history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
-      localStorage.setItem('sortis_request_backup', JSON.stringify(history));
+      safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history));
       closeModal();
       toast("Solicitud #" + requestId + " guardada localmente (SharePoint no disponible)", 'info');
       return;
     }
-    var history = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+    var history = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
     history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
-    localStorage.setItem('sortis_request_backup', JSON.stringify(history));
+    safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history));
     closeModal();
     toast("Solicitud #" + requestId + " enviada exitosamente", 'success');
   } catch (e) {
     console.error('Request submission error:', e);
     var requestId2 = document.getElementById('req-id').value;
     if (requestId2) {
-      var history2 = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+      var history2 = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
       history2.push({ id: requestId2, date: document.getElementById('req-date').value, name: document.getElementById('req-name').value, email: document.getElementById('req-email').value, dept: document.getElementById('req-dept').value, position: document.getElementById('req-position').value });
-      localStorage.setItem('sortis_request_backup', JSON.stringify(history2));
+      safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history2));
     }
     toast("Error al enviar solicitud. Guardada localmente.", 'error');
     btn.disabled = false;
@@ -1352,7 +1363,7 @@ async function loadRequestHistory() {
     var isSPDomain = window.location.hostname.indexOf('sharepoint.com') >= 0;
     if (!isSPDomain) {
       console.log('[SORTIS] Not on SharePoint domain, loading history from localStorage');
-      var backup = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+      var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
       if (backup.length > 0) {
         renderRequestHistory(backup, container);
       } else {
@@ -1370,7 +1381,7 @@ async function loadRequestHistory() {
     renderRequestHistory(items, container);
   } catch (e) {
     console.error('[SORTIS] History load error:', e);
-    var backup = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+    var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
     if (backup.length > 0) {
       renderRequestHistory(backup, container);
     } else {
@@ -1540,7 +1551,7 @@ var DEFAULT_ROOM_COLORS = JSON.parse(JSON.stringify(ROOM_COLORS));
 
 function loadCustomColors() {
   try {
-    var saved = localStorage.getItem('sortis_custom_colors');
+    var saved = safeLocalStorage.getItem('sortis_custom_colors');
     if (saved) {
       var data = JSON.parse(saved);
       if (data.dept) { for (var k in data.dept) { DEPT_COLORS[k] = data.dept[k]; } }
@@ -1550,13 +1561,13 @@ function loadCustomColors() {
 }
 
 function saveCustomColors(deptColors, roomColors) {
-  localStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
+  safeLocalStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
 }
 
 function resetColors() {
   for (var k in DEFAULT_DEPT_COLORS) { DEPT_COLORS[k] = DEFAULT_DEPT_COLORS[k]; }
   for (var k in DEFAULT_ROOM_COLORS) { ROOM_COLORS[k] = DEFAULT_ROOM_COLORS[k]; }
-  localStorage.removeItem('sortis_custom_colors');
+  safeLocalStorage.removeItem('sortis_custom_colors');
   refreshGrid();
   initLegend();
   toast('Colors reset to defaults', 'info');
@@ -1629,7 +1640,7 @@ var customRooms = [];
 
 function loadCustomRooms() {
   try {
-    var saved = localStorage.getItem('sortis_custom_rooms');
+    var saved = safeLocalStorage.getItem('sortis_custom_rooms');
     if (saved) customRooms = JSON.parse(saved);
   } catch(e) { customRooms = []; }
   var staticNames = {};
@@ -1640,7 +1651,7 @@ function loadCustomRooms() {
 }
 
 function saveCustomRooms() {
-  localStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
+  safeLocalStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
 }
 
 function toggleRoomEditor() {
@@ -1914,7 +1925,7 @@ function deleteSelectedRoom() {
 
 function resetCustomRooms() {
   customRooms = [];
-  localStorage.removeItem('sortis_custom_rooms');
+  safeLocalStorage.removeItem('sortis_custom_rooms');
   refreshGrid();
   addRoomEditorListeners();
   toast('Rooms reset to defaults', 'info');

@@ -29,6 +29,7 @@ class SeatItem(QGraphicsRectItem):
         self.setBrush(QBrush(QColor(self.color)))
         self.setPen(QPen(QColor("#000"), 0))
         self.setAcceptHoverEvents(True)
+        self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         label = QGraphicsTextItem(seat_data["seat_no"], self)
@@ -69,3 +70,12 @@ class SeatItem(QGraphicsRectItem):
     def set_selected(self, selected):
         self._selected = selected
         self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            scene = self.scene()
+            if scene and hasattr(scene, "select_seat_item"):
+                scene.select_seat_item(self)
+                if scene.on_seat_selected:
+                    scene.on_seat_selected(self)
+        super().mousePressEvent(event)

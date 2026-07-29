@@ -1168,20 +1168,29 @@ function removeBrigadista(name) {
 var REQUESTS_LIST = 'Solicitudes';
 
 async function getRequestDigest() {
-  var el = document.querySelector('#__REQUESTDIGEST');
-  if (el && el.value) return el.value;
-  var url = SHAREPOINT_SITE + "_api/contextinfo";
-  var r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Accept': 'application/json;odata=verbose' }
-  });
-  var data = await r.json();
-  return data.d.GetContextWebInformation.FormDigestValue;
+  try {
+    var el = document.querySelector('#__REQUESTDIGEST');
+    if (el && el.value) return el.value;
+    var url = SHAREPOINT_SITE + "_api/contextinfo";
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json;odata=verbose' }
+    });
+    if (!r.ok) return null;
+    var data = await r.json();
+    if (data && data.d && data.d.GetContextWebInformation) {
+      return data.d.GetContextWebInformation.FormDigestValue;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function spCreateRequest(itemData) {
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items";
   var digest = await getRequestDigest();
+  if (!digest) throw new Error('SharePoint not available');
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items";
   var r = await fetch(url, {
     method: 'POST',
     headers: {
@@ -1270,7 +1279,17 @@ async function submitRequest() {
       CurrentEmployee: current || '',
       ProposedEmployee: proposed
     };
-    await spCreateRequest(itemData);
+    try {
+      await spCreateRequest(itemData);
+    } catch (e) {
+      // SharePoint unavailable - save locally as fallback
+      var history = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
+      history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
+      localStorage.setItem('sortis_request_backup', JSON.stringify(history));
+      closeModal();
+      toast("Solicitud #" + requestId + " guardada localmente (SharePoint no disponible)", 'info');
+      return;
+    }
     var history = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
     history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
     localStorage.setItem('sortis_request_backup', JSON.stringify(history));
@@ -1284,7 +1303,7 @@ async function submitRequest() {
       history2.push({ id: requestId2, date: document.getElementById('req-date').value, name: document.getElementById('req-name').value, email: document.getElementById('req-email').value, dept: document.getElementById('req-dept').value, position: document.getElementById('req-position').value });
       localStorage.setItem('sortis_request_backup', JSON.stringify(history2));
     }
-    toast("Error al enviar solicitud: " + e.message + ". Guardada localmente.", 'error');
+    toast("Error al enviar solicitud. Guardada localmente.", 'error');
     btn.disabled = false;
     btn.textContent = "Enviar Solicitud";
   }
@@ -1316,7 +1335,7 @@ async function loadRequestHistory() {
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     var data = await r.json();
-    var items = data.d.results || [];
+    var items = (data && data.d && data.d.results) ? data.d.results : [];
     renderRequestHistory(items, container);
   } catch (e) {
     console.error('History load error:', e);

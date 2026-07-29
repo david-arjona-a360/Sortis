@@ -15,6 +15,7 @@ from src.core.request_store import RequestStore
 from src.core.health_check import run_health_check
 from src.core.path_config import get_requests_path, get_logs_path
 from src.core.log_manager import LogManager
+from src.core.exporter import export_to_pdf, export_to_xlsx
 from src.theme.theme import COLORS
 
 
@@ -50,6 +51,13 @@ class MainWindow(QMainWindow):
         refresh_action.setShortcut(QKeySequence("F5"))
         refresh_action.triggered.connect(self._refresh_data)
         file_menu.addAction(refresh_action)
+        file_menu.addSeparator()
+        export_pdf = QAction("Export Requests to PDF...", self)
+        export_pdf.triggered.connect(self._export_pdf)
+        file_menu.addAction(export_pdf)
+        export_xlsx = QAction("Export Requests to Excel...", self)
+        export_xlsx.triggered.connect(self._export_xlsx)
+        file_menu.addAction(export_xlsx)
         file_menu.addSeparator()
         exit_action = QAction("Exit", self)
         exit_action.setShortcut(QKeySequence("Ctrl+Q"))
@@ -166,6 +174,22 @@ class MainWindow(QMainWindow):
                 )
             self.status_bar.showMessage(f"Request {dlg.request.id} created", 5000)
             self.request_panel.refresh()
+
+    def _export_pdf(self):
+        reqs = self.store.list_all()
+        if not reqs:
+            QMessageBox.information(self, "Export", "No requests to export")
+            return
+        export_to_pdf(reqs, self)
+        self.status_bar.showMessage("PDF exported", 3000)
+
+    def _export_xlsx(self):
+        reqs = self.store.list_all()
+        if not reqs:
+            QMessageBox.information(self, "Export", "No requests to export")
+            return
+        export_to_xlsx(reqs, self)
+        self.status_bar.showMessage("Excel exported", 3000)
 
     def _refresh_data(self):
         self.scene.load()

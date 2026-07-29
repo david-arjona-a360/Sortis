@@ -32,6 +32,8 @@ class SeatItem(QGraphicsRectItem):
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        self._build_tooltip()
+
         label = QGraphicsTextItem(seat_data["seat_no"], self)
         label.setDefaultTextColor(QColor("#333" if not self.occupied else "#fff"))
         font = QFont("Segoe UI", 7, QFont.Weight.Bold)
@@ -39,6 +41,23 @@ class SeatItem(QGraphicsRectItem):
         lr = label.boundingRect()
         label.setPos(x + (CELL_W - lr.width()) / 2, y + (CELL_H - lr.height()) / 2)
         self._label = label
+
+    def _build_tooltip(self):
+        sd = self.seat_data
+        lines = [f"<b>Seat #{sd['seat_no']}</b>"]
+        person = sd.get("person")
+        if person:
+            lines.append(f"Name: {person.get('name', '')}")
+            if person.get("department"):
+                lines.append(f"Dept: {person['department']}")
+            if person.get("title"):
+                lines.append(f"Title: {person['title']}")
+        else:
+            lines.append("<i>Unassigned</i>")
+        if sd.get("brigadista"):
+            lines.append(f"Brig: {sd['brigadista']}")
+        lines.append(f"Loc: ({sd['row']}, {sd['col']})")
+        self.setToolTip("<br>".join(lines))
 
     def paint(self, painter, option, widget=None):
         color = QColor(self.color)

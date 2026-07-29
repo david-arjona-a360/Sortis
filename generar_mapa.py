@@ -1183,19 +1183,8 @@ async function getRequestDigest() {
     var el = document.querySelector('#__REQUESTDIGEST');
     if (el && el.value) return el.value;
 
-    var isSPDomain = window.location.hostname.indexOf('sharepoint.com') >= 0;
-    if (!isSPDomain) {
-      console.log('[SORTIS] Not on SharePoint domain (' + window.location.hostname + '), digest unavailable');
-      return null;
-    }
-
-    var originOk = (window.location.origin + '/') === SHAREPOINT_SITE;
-    if (!originOk) {
-      console.log('[SORTIS] Page origin (' + window.location.origin + '/) differs from SHAREPOINT_SITE (' + SHAREPOINT_SITE + ')');
-    }
-
     var url = SHAREPOINT_SITE + "_api/contextinfo";
-    console.log('[SORTIS] Fetching digest from: ' + url);
+    console.log('[SORTIS] Fetching digest from: ' + url + ' (hostname=' + window.location.hostname + ', origin=' + window.location.origin + ')');
     var r = await fetch(url, {
       method: 'POST',
       headers: { 'Accept': 'application/json;odata=verbose' }
@@ -1360,18 +1349,8 @@ async function loadRequestHistory() {
   var container = document.getElementById('history-list');
   if (!container) return;
   try {
-    var isSPDomain = window.location.hostname.indexOf('sharepoint.com') >= 0;
-    if (!isSPDomain) {
-      console.log('[SORTIS] Not on SharePoint domain, loading history from localStorage');
-      var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
-      if (backup.length > 0) {
-        renderRequestHistory(backup, container);
-      } else {
-        container.innerHTML = '<p style="color:#999;text-align:center;padding:20px">No hay solicitudes registradas.</p>';
-      }
-      return;
-    }
     var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items?$orderby=Created desc&$top=200";
+    console.log('[SORTIS] Fetching history from: ' + url + ' (hostname=' + window.location.hostname + ')');
     var r = await fetch(url, {
       headers: { 'Accept': 'application/json;odata=verbose' }
     });
@@ -1380,7 +1359,7 @@ async function loadRequestHistory() {
     var items = (data && data.d && data.d.results) ? data.d.results : [];
     renderRequestHistory(items, container);
   } catch (e) {
-    console.error('[SORTIS] History load error:', e);
+    console.log('[SORTIS] History load error - falling back to localStorage: ' + e.message);
     var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
     if (backup.length > 0) {
       renderRequestHistory(backup, container);

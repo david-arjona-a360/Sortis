@@ -1,8 +1,20 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton, QFrame,
 )
+
+_PANEL_BG = "#1e1e1e"
+_LABEL_COLOR = "#aaa"
+_VALUE_COLOR = "#ffffff"
+_HEADER_COLOR = "#ffffff"
+_ACTIONS_COLOR = "#aaa"
+_PLACEHOLDER_COLOR = "#aaa"
+_STATS_COLOR = "#777"
+_SEPARATOR_COLOR = "#444"
+_OCCUPIED_COLOR = "#4caf50"
+_VACANT_COLOR = "#ff9800"
+_DEPT_COLOR = "#5c8aff"
 
 
 class SeatInfoPanel(QWidget):
@@ -16,12 +28,18 @@ class SeatInfoPanel(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
+        pal = self.palette()
+        pal.setColor(self.backgroundRole(), QColor(_PANEL_BG))
+        self.setPalette(pal)
+        self.setAutoFillBackground(True)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
         header = QLabel("Seat Information")
         header.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        header.setStyleSheet(f"color: {_HEADER_COLOR};")
         layout.addWidget(header)
 
         self._content = QVBoxLayout()
@@ -32,11 +50,12 @@ class SeatInfoPanel(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet(f"color: {_SEPARATOR_COLOR};")
         layout.addWidget(line)
 
         actions_header = QLabel("Actions")
         actions_header.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        actions_header.setStyleSheet("color: #555;")
+        actions_header.setStyleSheet(f"color: {_ACTIONS_COLOR};")
         layout.addWidget(actions_header)
 
         self.request_btn = QPushButton("Request Change for Selected Seat")
@@ -48,7 +67,7 @@ class SeatInfoPanel(QWidget):
                 font-size: 12px;
             }
             QPushButton:hover { background: #283593; }
-            QPushButton:disabled { background: #bdbdbd; color: #757575; }
+            QPushButton:disabled { background: #3a3a3a; color: #777; }
         """)
         self.request_btn.clicked.connect(self.request_clicked.emit)
         layout.addWidget(self.request_btn)
@@ -62,17 +81,18 @@ class SeatInfoPanel(QWidget):
             if w:
                 w.deleteLater()
 
-    def _add_info_row(self, label, value):
+    def _add_info_row(self, label, value, value_color=None):
         if not value:
             return
         lbl = QLabel(label)
         lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        lbl.setStyleSheet("color: #888; margin-top: 4px;")
+        lbl.setStyleSheet(f"color: {_LABEL_COLOR}; margin-top: 4px;")
         self._content.addWidget(lbl)
         val = QLabel(value)
         val.setFont(QFont("Segoe UI", 10))
         val.setWordWrap(True)
-        val.setStyleSheet("color: #222;")
+        val_color = value_color or _VALUE_COLOR
+        val.setStyleSheet(f"color: {val_color};")
         val.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._content.addWidget(val)
 
@@ -80,7 +100,7 @@ class SeatInfoPanel(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("margin: 4px 0;")
+        line.setStyleSheet(f"color: {_SEPARATOR_COLOR}; margin: 4px 0;")
         self._content.addWidget(line)
 
     def show_seat_info(self, seat_data):
@@ -92,7 +112,7 @@ class SeatInfoPanel(QWidget):
         if person:
             dept = person.get("department") or seat_data.get("department")
             if dept:
-                self._add_info_row("Department", dept)
+                self._add_info_row("Department", dept, _DEPT_COLOR)
 
             self._add_section_divider()
 
@@ -117,13 +137,13 @@ class SeatInfoPanel(QWidget):
             self._add_section_divider()
             status = QLabel("Status: Occupied")
             status.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-            status.setStyleSheet("color: #2e7d32; margin-top: 4px;")
+            status.setStyleSheet(f"color: {_OCCUPIED_COLOR}; margin-top: 4px;")
             self._content.addWidget(status)
         else:
             self._add_section_divider()
             status = QLabel("Status: VACANT")
             status.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-            status.setStyleSheet("color: #e65100; margin-top: 4px;")
+            status.setStyleSheet(f"color: {_VACANT_COLOR}; margin-top: 4px;")
             self._content.addWidget(status)
 
         self._content.addStretch()
@@ -137,7 +157,7 @@ class SeatInfoPanel(QWidget):
     def _show_placeholder(self):
         lbl = QLabel("Select a seat\nto view information")
         lbl.setFont(QFont("Segoe UI", 12))
-        lbl.setStyleSheet("color: #999; padding: 20px 0;")
+        lbl.setStyleSheet(f"color: {_PLACEHOLDER_COLOR}; padding: 20px 0;")
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content.addWidget(lbl)
 
@@ -148,7 +168,7 @@ class SeatInfoPanel(QWidget):
                 f"Vacant: {self._vacant}"
             )
             stats.setFont(QFont("Segoe UI", 10))
-            stats.setStyleSheet("color: #bbb;")
+            stats.setStyleSheet(f"color: {_STATS_COLOR};")
             stats.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._content.addWidget(stats)
 

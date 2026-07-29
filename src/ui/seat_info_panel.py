@@ -15,6 +15,7 @@ _SEPARATOR_COLOR = "#444"
 _OCCUPIED_COLOR = "#4caf50"
 _VACANT_COLOR = "#ff9800"
 _DEPT_COLOR = "#5c8aff"
+_FALLBACK_COLOR = "#666"
 
 
 class SeatInfoPanel(QWidget):
@@ -81,9 +82,14 @@ class SeatInfoPanel(QWidget):
             if w:
                 w.deleteLater()
 
-    def _add_info_row(self, label, value, value_color=None):
+    def _add_info_row(self, label, value, value_color=None, fallback=None):
         if not value:
-            return
+            if fallback:
+                value = fallback
+                if value_color is None:
+                    value_color = _FALLBACK_COLOR
+            else:
+                return
         lbl = QLabel(label)
         lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         lbl.setStyleSheet(f"color: {_LABEL_COLOR}; margin-top: 4px;")
@@ -111,28 +117,24 @@ class SeatInfoPanel(QWidget):
 
         if person:
             dept = person.get("department") or seat_data.get("department")
-            if dept:
-                self._add_info_row("Department", dept, _DEPT_COLOR)
+            self._add_info_row("Department", dept, _DEPT_COLOR, "Not assigned")
 
             self._add_section_divider()
 
             name = person.get("name", "")
-            if name:
-                self._add_info_row("Employee", name)
+            self._add_info_row("Employee", name)
 
             email = person.get("email", "")
-            if email:
-                self._add_info_row("Email", email)
+            self._add_info_row("Email", email, fallback="Not provided")
 
             title = person.get("title", "")
-            if title:
-                self._add_info_row("Position", title)
+            self._add_info_row("Position", title, fallback="Not specified")
 
-            if seat_data.get("brigadista"):
-                self._add_info_row("Brigadista", seat_data["brigadista"])
+            brig = seat_data.get("brigadista")
+            self._add_info_row("Brigadista", brig, fallback="None")
 
-            if seat_data.get("notas"):
-                self._add_info_row("Notes", seat_data["notas"])
+            notas = seat_data.get("notas")
+            self._add_info_row("Notes", notas, fallback="None")
 
             self._add_section_divider()
             status = QLabel("Status: Occupied")

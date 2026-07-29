@@ -66,6 +66,7 @@ def read_seats_allocation(wb):
         brigadista = ws.cell(row, 3).value
         notas = ws.cell(row, 4).value
         department = ws.cell(row, 5).value
+        title = ws.cell(row, 6).value
         name_str = fix_encoding(str(name).strip()) if name else None
         seat_key = normalize_seat_no(seat_no_raw)
         if seat_key is None:
@@ -75,6 +76,7 @@ def read_seats_allocation(wb):
             "brigadista": fix_encoding(str(brigadista).strip()) if brigadista else None,
             "notas": fix_encoding(str(notas).strip()) if notas else None,
             "department": fix_encoding(str(department).strip()) if department else None,
+            "title": fix_encoding(str(title).strip()) if title else None,
         }
     return seats
 

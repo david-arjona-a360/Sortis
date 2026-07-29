@@ -5,3 +5,10 @@ floor_plan_data.json
 __pycache__/
 .env
 *.pyc
+dist/
+build/
+release/
+*.spec
+*.egg-info/
+.venv/
+venv/

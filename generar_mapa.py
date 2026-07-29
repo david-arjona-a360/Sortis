@@ -485,10 +485,6 @@ body {
 .cell.room.edge-se { cursor: se-resize; }
 .cell.room.edge-move { cursor: grab; }
 .cell.room.dragging { cursor: grabbing; }
-.status-badge {
-  display: inline-block; padding: 2px 8px; border-radius: 10px;
-  font-size: 11px; font-weight: 600; background: #e3f2fd; color: #1565c0;
-}
 .btn-requests {
   font-size:12px; padding:2px 10px; margin-left:8px;
 }
@@ -1228,14 +1224,6 @@ function showRequestForm(seatNo) {
   for (var d = 0; d < allDepts.length; d++) {
     deptOptions += '<option value="' + allDepts[d] + '">' + allDepts[d] + '</option>';
   }
-  var requestTypes = [
-    'Personnel Change', 'Employee Replacement',
-    'Vacancy Request', 'Transfer Request', 'Information Update'
-  ];
-  var typeOptions = '';
-  for (var t = 0; t < requestTypes.length; t++) {
-    typeOptions += '<option value="' + requestTypes[t] + '">' + requestTypes[t] + '</option>';
-  }
   var h = '';
   h += '<form id="request-form" onsubmit="return false">';
   h += '<div class="form-group"><label>Request ID</label><input type="text" id="req-id" value="' + requestId + '" readonly></div>';
@@ -1246,9 +1234,6 @@ function showRequestForm(seatNo) {
   h += '<div class="form-group"><label>Position (Seat #)</label><input type="text" id="req-position" value="' + seatNo + '" readonly></div>';
   h += '<div class="form-group"><label>Current Employee</label><input type="text" id="req-current" value="' + (p ? p.name : '') + '" readonly></div>';
   h += '<div class="form-group"><label>Proposed Employee *</label><input type="text" id="req-proposed" placeholder="Nombre de la persona propuesta" required></div>';
-  h += '<div class="form-group"><label>Request Type *</label><select id="req-type" required>' + typeOptions + '</select></div>';
-  h += '<div class="form-group"><label>Business Justification *</label><textarea id="req-justification" rows="3" placeholder="Explique la razon del cambio" required></textarea></div>';
-  h += '<div class="form-group"><label>Additional Comments</label><textarea id="req-comments" rows="2" placeholder="Comentarios adicionales"></textarea></div>';
   h += '<div class="modal-actions">';
   h += '<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>';
   h += '<button type="button" class="btn btn-primary" id="btn-submit-request" onclick="submitRequest()">Enviar Solicitud</button>';
@@ -1270,13 +1255,9 @@ async function submitRequest() {
     var position = document.getElementById('req-position').value;
     var current = document.getElementById('req-current').value;
     var proposed = document.getElementById('req-proposed').value.trim();
-    var type = document.getElementById('req-type').value;
-    var justification = document.getElementById('req-justification').value.trim();
-    var comments = document.getElementById('req-comments').value.trim();
     if (!name) { toast("Requestor Name is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
     if (!email || email.indexOf('@') < 0) { toast("Valid email is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
     if (!proposed) { toast("Proposed Employee is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
-    if (!justification) { toast("Business Justification is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
     var requestId = document.getElementById('req-id').value;
     var requestDate = document.getElementById('req-date').value;
     var itemData = {
@@ -1287,15 +1268,11 @@ async function submitRequest() {
       Department: dept,
       Position: position,
       CurrentEmployee: current || '',
-      ProposedEmployee: proposed,
-      RequestType: type,
-      Justification: justification,
-      AdditionalComments: comments || '',
-      Status: 'Submitted'
+      ProposedEmployee: proposed
     };
     await spCreateRequest(itemData);
     var history = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
-    history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position, type: type, status: 'Submitted' });
+    history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
     localStorage.setItem('sortis_request_backup', JSON.stringify(history));
     closeModal();
     toast("Solicitud #" + requestId + " enviada exitosamente", 'success');
@@ -1304,7 +1281,7 @@ async function submitRequest() {
     var requestId2 = document.getElementById('req-id').value;
     if (requestId2) {
       var history2 = JSON.parse(localStorage.getItem('sortis_request_backup') || '[]');
-      history2.push({ id: requestId2, date: document.getElementById('req-date').value, name: document.getElementById('req-name').value, email: document.getElementById('req-email').value, dept: document.getElementById('req-dept').value, position: document.getElementById('req-position').value, type: document.getElementById('req-type').value, status: 'Pending' });
+      history2.push({ id: requestId2, date: document.getElementById('req-date').value, name: document.getElementById('req-name').value, email: document.getElementById('req-email').value, dept: document.getElementById('req-dept').value, position: document.getElementById('req-position').value });
       localStorage.setItem('sortis_request_backup', JSON.stringify(history2));
     }
     toast("Error al enviar solicitud: " + e.message + ". Guardada localmente.", 'error');
@@ -1362,24 +1339,24 @@ function renderRequestHistory(items, container) {
   h += '<thead><tr style="background:#f5f5f5">';
   h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Request ID</th>';
   h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Fecha</th>';
-  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Tipo</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Solicitante</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Departamento</th>';
   h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Puesto</th>';
-  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Estado</th>';
   h += '</tr></thead><tbody>';
   for (var i = 0; i < items.length; i++) {
     var it = items[i];
     var id = it.Title || it.id || 'N/A';
     var date = it.RequestDate || it.date || 'N/A';
-    var type = it.RequestType || it.type || 'N/A';
+    var name = it.RequestorName || it.name || '';
+    var dept = it.Department || it.dept || '';
     var pos = it.Position || it.position || 'N/A';
-    var status = it.Status || it.status || 'Submitted';
     if (date && date.length > 10) date = date.substring(0, 10);
     h += '<tr style="border-bottom:1px solid #eee">';
     h += '<td style="padding:8px;font-weight:600">' + id + '</td>';
     h += '<td style="padding:8px">' + date + '</td>';
-    h += '<td style="padding:8px">' + type + '</td>';
+    h += '<td style="padding:8px">' + name + '</td>';
+    h += '<td style="padding:8px">' + dept + '</td>';
     h += '<td style="padding:8px">' + pos + '</td>';
-    h += '<td style="padding:8px"><span class="status-badge">' + status + '</span></td>';
     h += '</tr>';
   }
   h += '</tbody></table>';
@@ -1390,10 +1367,10 @@ function filterRequestHistory() {
   var q = document.getElementById('history-search').value.toLowerCase();
   var filtered = _allHistoryItems.filter(function(item) {
     var id = (item.Title || item.id || '').toLowerCase();
-    var type = (item.RequestType || item.type || '').toLowerCase();
+    var name = (item.RequestorName || item.name || '').toLowerCase();
+    var dept = (item.Department || item.dept || '').toLowerCase();
     var pos = (item.Position || item.position || '').toLowerCase();
-    var status = (item.Status || item.status || '').toLowerCase();
-    return id.indexOf(q) >= 0 || type.indexOf(q) >= 0 || pos.indexOf(q) >= 0 || status.indexOf(q) >= 0;
+    return id.indexOf(q) >= 0 || name.indexOf(q) >= 0 || dept.indexOf(q) >= 0 || pos.indexOf(q) >= 0;
   });
   var container = document.getElementById('history-list');
   renderRequestHistory(filtered, container);

@@ -1178,30 +1178,26 @@ function removeBrigadista(name) {
 // ============================================================
 var REQUESTS_LIST = 'Solicitudes';
 
+var __spApiAvailable = true;
+
 async function getRequestDigest() {
+  if (!__spApiAvailable) return null;
   try {
     var el = document.querySelector('#__REQUESTDIGEST');
     if (el && el.value) return el.value;
-
     var url = SHAREPOINT_SITE + "_api/contextinfo";
-    console.log('[SORTIS] Fetching digest from: ' + url + ' (hostname=' + window.location.hostname + ', origin=' + window.location.origin + ')');
     var r = await fetch(url, {
       method: 'POST',
       headers: { 'Accept': 'application/json;odata=verbose' }
     });
-    if (!r.ok) {
-      console.log('[SORTIS] Digest request returned HTTP ' + r.status);
-      return null;
-    }
+    if (!r.ok) return null;
     var data = await r.json();
     if (data && data.d && data.d.GetContextWebInformation) {
-      console.log('[SORTIS] Digest obtained successfully');
       return data.d.GetContextWebInformation.FormDigestValue;
     }
-    console.log('[SORTIS] Unexpected digest response format', data);
     return null;
   } catch (e) {
-    console.log('[SORTIS] Digest request exception:', e.message);
+    __spApiAvailable = false;
     return null;
   }
 }
@@ -1301,8 +1297,7 @@ async function submitRequest() {
     try {
       await spCreateRequest(itemData);
     } catch (e) {
-      console.log('[SORTIS] SharePoint submission failed:', e.message);
-      // SharePoint unavailable - save locally as fallback
+      // SharePoint unavailable (CSP blocks API in doc library context) - save locally
       var history = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
       history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
       safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history));
@@ -1350,7 +1345,6 @@ async function loadRequestHistory() {
   if (!container) return;
   try {
     var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items?$orderby=Created desc&$top=200";
-    console.log('[SORTIS] Fetching history from: ' + url + ' (hostname=' + window.location.hostname + ')');
     var r = await fetch(url, {
       headers: { 'Accept': 'application/json;odata=verbose' }
     });
@@ -1359,7 +1353,6 @@ async function loadRequestHistory() {
     var items = (data && data.d && data.d.results) ? data.d.results : [];
     renderRequestHistory(items, container);
   } catch (e) {
-    console.log('[SORTIS] History load error - falling back to localStorage: ' + e.message);
     var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
     if (backup.length > 0) {
       renderRequestHistory(backup, container);

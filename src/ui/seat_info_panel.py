@@ -124,8 +124,8 @@ class SeatInfoPanel(QWidget):
             name = person.get("name", "")
             self._add_info_row("Employee", name)
 
-            email = person.get("email", "")
-            self._add_info_row("Email", email, fallback="Not provided")
+            emp_no = person.get("employee_number", "")
+            self._add_info_row("Employee #", emp_no, fallback="Not available")
 
             title = person.get("title", "")
             self._add_info_row("Position", title, fallback="Not specified")

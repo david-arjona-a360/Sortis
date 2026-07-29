@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Reads SORTIS_FLOOR_PLAN.xlsx and PTY Users & Roles.xlsx, then outputs
-positions.json to the OneDrive FLOOR PLAN folder for the SORTIS Desktop app.
+Reads SORTIS_FLOOR_PLAN.xlsx and PTY Users & Roles.xlsx (Query - Active sheet),
+then outputs positions.json to the OneDrive FLOOR PLAN folder for the SORTIS Desktop app.
 """
 
 import json
@@ -37,22 +37,29 @@ def normalize_seat_no(val):
     return str(val).strip()
 
 
-def read_pty_users():
+def read_active_users():
     if not os.path.exists(PTY_USERS_PATH):
-        print(f"  WARNING: PTY Users not found at {PTY_USERS_PATH}")
+        print(f"  WARNING: PTY Users file not found at {PTY_USERS_PATH}")
         return {}
     wb = openpyxl.load_workbook(PTY_USERS_PATH, read_only=True, data_only=True)
-    ws = wb["PTY Users"]
+    ws = wb["Query - Active"]
     people = {}
     for row in ws.iter_rows(min_row=2, values_only=True):
-        first, last, title, div, email = row[0], row[1], row[2], row[3], row[4]
-        if not first or not last:
+        emp_no = row[0]
+        title = row[4]
+        dept = row[5]
+        full_name = row[7]
+        if not full_name:
             continue
-        name = fix_encoding(f"{first} {last}".strip())
-        dept = fix_encoding(str(div).strip()) if div else None
+        name = fix_encoding(str(full_name).strip())
+        dept_str = fix_encoding(str(dept).strip()) if dept else None
         title_str = fix_encoding(str(title).strip()) if title else None
-        email_str = fix_encoding(str(email).strip()) if email else None
-        people[name] = {"department": dept, "title": title_str, "email": email_str}
+        emp_no_str = str(int(emp_no)) if emp_no else None
+        people[name] = {
+            "department": dept_str,
+            "title": title_str,
+            "employee_number": emp_no_str,
+        }
     wb.close()
     return people
 
@@ -132,7 +139,7 @@ def read_floor_plan(wb):
     return rooms, seats, max_row, max_col
 
 
-def build_output(rooms, grid_seats, seats_alloc, pty_users):
+def build_output(rooms, grid_seats, seats_alloc, active_users):
     departments = set()
     output_seats = []
     for gs in grid_seats:
@@ -141,7 +148,7 @@ def build_output(rooms, grid_seats, seats_alloc, pty_users):
         person_name = alloc.get("name")
         person = None
         if person_name:
-            pty = pty_users.get(person_name, {})
+            pty = active_users.get(person_name, {})
             dept = pty.get("department") or alloc.get("department")
             if dept:
                 departments.add(dept)
@@ -149,7 +156,7 @@ def build_output(rooms, grid_seats, seats_alloc, pty_users):
                 "name": person_name,
                 "department": dept,
                 "title": pty.get("title") or alloc.get("title"),
-                "email": pty.get("email"),
+                "employee_number": pty.get("employee_number"),
             }
         output_seats.append({
             "seat_no": seat_no,
@@ -186,11 +193,11 @@ def main():
     wb.close()
     print(f"  Seats allocation entries: {len(seats_alloc)}")
 
-    print(f"Reading PTY Users...")
-    pty_users = read_pty_users()
-    print(f"  PTY Users entries: {len(pty_users)}")
+    print(f"Reading Query - Active...")
+    active_users = read_active_users()
+    print(f"  Active users entries: {len(active_users)}")
 
-    data = build_output(rooms, grid_seats, seats_alloc, pty_users)
+    data = build_output(rooms, grid_seats, seats_alloc, active_users)
     data["grid"]["rows"] = max_row
     data["grid"]["cols"] = max_col
 

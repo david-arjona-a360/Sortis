@@ -1,15 +1,15 @@
-from PySide6.QtCore import Qt, QPointF
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
-    QMainWindow, QHBoxLayout, QVBoxLayout, QWidget,
-    QLabel, QPushButton, QStatusBar, QMenu,
-    QSplitter, QFrame, QGraphicsItem,
-    QMessageBox, QToolBar,
+    QMainWindow, QVBoxLayout, QWidget,
+    QLabel, QStatusBar, QMenu,
+    QSplitter, QFrame, QMessageBox,
 )
 
 from src.ui.floor_plan_scene import FloorPlanScene
 from src.ui.floor_plan_view import FloorPlanView
-from src.ui.request_panel import RequestPanel
+from src.ui.filter_bar import FilterBar
+from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
 from src.core.request_store import RequestStore
 from src.core.health_check import run_health_check
@@ -40,9 +40,7 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
         self._run_health()
         self.scene.load()
-        if hasattr(self, "request_panel"):
-            self.request_panel.refresh()
-            self._sync_departments()
+        self._sync_departments()
 
     def _setup_menu(self):
         menubar = self.menuBar()
@@ -91,46 +89,35 @@ class MainWindow(QMainWindow):
         self.view = FloorPlanView(self.scene, self)
         self.view.setFrameShape(QFrame.Shape.NoFrame)
 
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_bar = FilterBar()
+        self.filter_bar.filter_changed.connect(self._on_filters_changed)
 
-        seat_info_label = QLabel("Click a seat to view details")
-        seat_info_label.setFont(QFont("Segoe UI", 10))
-        seat_info_label.setStyleSheet("padding: 8px; background: #fff; border-bottom: 1px solid #ddd;")
-        right_layout.addWidget(seat_info_label)
-        self._seat_info = seat_info_label
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+        left_layout.addWidget(self.filter_bar)
+        left_layout.addWidget(self.view, stretch=1)
 
-        request_seat_btn = QPushButton("Request Change for Selected Seat")
-        request_seat_btn.clicked.connect(self._request_for_selected)
-        request_seat_btn.setEnabled(False)
-        right_layout.addWidget(request_seat_btn)
-        self._request_btn = request_seat_btn
-
-        requests_dir = get_requests_path()
-        if requests_dir:
-            self.request_panel = RequestPanel(self.store, self)
-            right_layout.addWidget(self.request_panel, stretch=1)
-        else:
-            placeholder = QLabel("Requests directory not found")
-            right_layout.addWidget(placeholder, stretch=1)
+        self.seat_info_panel = SeatInfoPanel()
+        self.seat_info_panel.request_clicked.connect(self._request_for_selected)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.view)
-        splitter.addWidget(right_panel)
+        splitter.addWidget(left_widget)
+        splitter.addWidget(self.seat_info_panel)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
 
         self.setCentralWidget(splitter)
 
         self.scene.on_seat_selected = self._on_seat_selected
-        if hasattr(self, "request_panel"):
-            self.request_panel.on_filter_changed = self._on_filters_changed
 
     def _on_filters_changed(self, occupancy, department):
         dept = None if department == "All Departments" else department
         self.scene.apply_filters(occupancy, dept)
         self._push_counts()
+        occ, vac = self._calculate_counts(self.filter_bar.current_department)
+        self.seat_info_panel.set_stats(occ + vac, occ, vac)
 
     def _calculate_counts(self, department=None):
         occ = 0
@@ -147,18 +134,18 @@ class MainWindow(QMainWindow):
         return occ, vac
 
     def _push_counts(self):
-        if not hasattr(self, "request_panel"):
-            return
-        dept = self.request_panel.dept_filter.currentText()
+        dept = self.filter_bar.current_department
         occ, vac = self._calculate_counts(dept)
-        self.request_panel.set_counts(occ + vac, occ, vac)
+        self.filter_bar.set_counts(occ + vac, occ, vac)
 
     def _sync_departments(self):
         data = getattr(self.scene, "data", {})
         depts = data.get("departments", [])
-        if depts and hasattr(self, "request_panel"):
-            self.request_panel.set_departments(depts)
+        if depts:
+            self.filter_bar.set_departments(depts)
         self._push_counts()
+        occ, vac = self._calculate_counts("All Departments")
+        self.seat_info_panel.set_stats(occ + vac, occ, vac)
 
     def _setup_status_bar(self):
         self.status_bar = QStatusBar()
@@ -177,20 +164,7 @@ class MainWindow(QMainWindow):
                 break
 
     def _on_seat_selected(self, seat_item):
-        sd = seat_item.seat_data
-        person = sd.get("person")
-        if person:
-            self._seat_info.setText(
-                f"<b>Seat #{sd['seat_no']}</b><br>"
-                f"{person.get('name', '')}<br>"
-                f"{person.get('department', '')} - {person.get('title', '')}"
-            )
-        else:
-            self._seat_info.setText(
-                f"<b>Seat #{sd['seat_no']}</b><br>"
-                f"<i>Unassigned</i>"
-            )
-        self._request_btn.setEnabled(True)
+        self.seat_info_panel.show_seat_info(seat_item.seat_data)
         self._current_seat = seat_item
 
     def _request_for_selected(self):
@@ -209,7 +183,6 @@ class MainWindow(QMainWindow):
                     details={"position": seat_data["seat_no"]},
                 )
             self.status_bar.showMessage(f"Request {dlg.request.id} created", 5000)
-            self.request_panel.refresh()
 
     def _export_pdf(self):
         reqs = self.store.list_all()
@@ -231,9 +204,8 @@ class MainWindow(QMainWindow):
         self.scene.load()
         self.view._apply_zoom()
         self.status_bar.showMessage("Data refreshed", 3000)
-        if self.request_panel:
-            self.request_panel.refresh()
-            self._sync_departments()
+        self._sync_departments()
+        self.seat_info_panel.clear_selection()
 
     def _zoom_in(self):
         self.view.zoom_in()

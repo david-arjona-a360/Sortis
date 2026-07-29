@@ -27,6 +27,7 @@ class RequestPanel(QWidget):
         super().__init__(parent)
         self.store = store
         self._requests = []
+        self._occupancy = "all"
         self.on_filter_changed = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -46,6 +47,9 @@ class RequestPanel(QWidget):
         self.btn_all = QPushButton("All")
         self.btn_occupied = QPushButton("Occupied")
         self.btn_vacant = QPushButton("Vacant")
+        self.btn_all._occ_mode = "all"
+        self.btn_occupied._occ_mode = "occupied"
+        self.btn_vacant._occ_mode = "vacant"
         for b in (self.btn_all, self.btn_occupied, self.btn_vacant):
             b.setCheckable(True)
             b.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -80,20 +84,26 @@ class RequestPanel(QWidget):
         layout.addWidget(self._detail)
 
     def _set_occupancy(self, value):
+        self._occupancy = value
         for b in self._filter_btns:
-            active = b.text().lower() == value
+            active = getattr(b, '_occ_mode', None) == value
             b.setChecked(active)
             b.setStyleSheet(_BTN_ACTIVE if active else _BTN_INACTIVE)
         self._emit_filter()
 
-    def _emit_filter(self):
-        occ = "all"
+    def set_counts(self, total_count, occupied_count, vacant_count):
         for b in self._filter_btns:
-            if b.isChecked():
-                occ = b.text().lower()
-        dept = self.dept_filter.currentText()
+            mode = getattr(b, '_occ_mode', None)
+            if mode == "all":
+                b.setText(f"All ({total_count})")
+            elif mode == "occupied":
+                b.setText(f"Occupied ({occupied_count})")
+            elif mode == "vacant":
+                b.setText(f"Vacant ({vacant_count})")
+
+    def _emit_filter(self):
         if self.on_filter_changed:
-            self.on_filter_changed(occ, dept)
+            self.on_filter_changed(self._occupancy, self.dept_filter.currentText())
 
     def refresh(self):
         self._requests = self.store.list_all()

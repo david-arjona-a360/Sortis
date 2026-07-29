@@ -130,12 +130,35 @@ class MainWindow(QMainWindow):
     def _on_filters_changed(self, occupancy, department):
         dept = None if department == "All Departments" else department
         self.scene.apply_filters(occupancy, dept)
+        self._push_counts()
+
+    def _calculate_counts(self, department=None):
+        occ = 0
+        vac = 0
+        for item in self.scene.seat_items:
+            person = item.seat_data.get("person")
+            seat_dept = person["department"] if person else None
+            if department and department != "All Departments" and seat_dept != department:
+                continue
+            if item.occupied:
+                occ += 1
+            else:
+                vac += 1
+        return occ, vac
+
+    def _push_counts(self):
+        if not hasattr(self, "request_panel"):
+            return
+        dept = self.request_panel.dept_filter.currentText()
+        occ, vac = self._calculate_counts(dept)
+        self.request_panel.set_counts(occ + vac, occ, vac)
 
     def _sync_departments(self):
         data = getattr(self.scene, "data", {})
         depts = data.get("departments", [])
         if depts and hasattr(self, "request_panel"):
             self.request_panel.set_departments(depts)
+        self._push_counts()
 
     def _setup_status_bar(self):
         self.status_bar = QStatusBar()

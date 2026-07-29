@@ -249,12 +249,6 @@ body {
   font-size: 12px; background: rgba(255,255,255,0.15);
   padding: 4px 12px; border-radius: 12px; white-space: nowrap;
 }
-#sp-status {
-  font-size: 11px; padding: 3px 8px; border-radius: 8px;
-  background: rgba(76,175,80,0.3); border: 1px solid rgba(76,175,80,0.5);
-  white-space: nowrap; display: none;
-}
-#sp-status.connected { display: inline-block; }
 #legend {
   background: #fff; padding: 6px 20px;
   display: flex; align-items: center; gap: 12px;
@@ -491,6 +485,9 @@ body {
 .cell.room.edge-se { cursor: se-resize; }
 .cell.room.edge-move { cursor: grab; }
 .cell.room.dragging { cursor: grabbing; }
+.btn-requests {
+  font-size:12px; padding:2px 10px; margin-left:8px;
+}
 </style>
 </head>
 <body>
@@ -504,13 +501,11 @@ body {
     <label class="filter-checkbox"><input type="checkbox" id="filter-unassigned"> Sin asignar</label>
     <input type="text" id="search" placeholder="Buscar persona...">
     <span id="counter">Cargando...</span>
-    <span id="sp-status" class="connected">Conectado a SharePoint</span>
+    <button class="btn btn-primary btn-requests" onclick="showRequestHistory()">Ver Solicitudes</button>
   </div>
 </div>
 <div id="admin-panel" class="admin-panel">
   <span class="admin-label">Admin Mode</span>
-  <button class="btn btn-primary" onclick="showAddPersonModal()" style="font-size:12px;padding:4px 12px">+ Add Person</button>
-  <button class="btn btn-secondary" onclick="showManageBrigadistasModal()" style="font-size:12px;padding:4px 12px">Manage Brigadistas</button>
   <button class="btn btn-secondary" onclick="showColorPickerModal()" style="font-size:12px;padding:4px 12px">Customize Colors</button>
   <button class="btn btn-secondary" onclick="toggleRoomEditor()" id="btn-room-editor" style="font-size:12px;padding:4px 12px">Edit Rooms</button>
   <button class="btn btn-success" id="btn-seed" onclick="seedSharePointData()" style="font-size:12px;padding:4px 12px;display:none">Seed SharePoint Lists</button>
@@ -571,7 +566,7 @@ var ROOM_COLORS = {
   'HR162': '#a8323b', Supervisor: '#50505a'
 };
 
-var SHAREPOINT_SITE = '';
+var SHAREPOINT_SITE = 'https://a360inc.sharepoint.com/sites/PTYFiles/';
 var PEOPLE_LIST = 'People';
 var SEATS_LIST = 'Seats';
 
@@ -586,6 +581,17 @@ var hasChanges = false;
 var spPeople = [];
 var spSeats = [];
 
+var safeLocalStorage = (function() {
+  try {
+    var t = 'test_' + Date.now();
+    safeLocalStorage.setItem(t, '1');
+    safeLocalStorage.removeItem(t);
+    return localStorage;
+  } catch (e) {
+    return { getItem: function() { return null; }, setItem: function() {}, removeItem: function() {} };
+  }
+})();
+
 var zoomLevel = 100;
 var ZOOM_MIN = 50;
 var ZOOM_MAX = 200;
@@ -593,7 +599,7 @@ var ZOOM_STEP = 10;
 
 function loadZoom() {
   try {
-    var saved = localStorage.getItem('sortis_zoom_level');
+    var saved = safeLocalStorage.getItem('sortis_zoom_level');
     if (saved) {
       zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parseInt(saved) || 100));
     }
@@ -601,7 +607,7 @@ function loadZoom() {
 }
 
 function saveZoom() {
-  try { localStorage.setItem('sortis_zoom_level', zoomLevel); } catch(e) {}
+  try { safeLocalStorage.setItem('sortis_zoom_level', zoomLevel); } catch(e) {}
 }
 
 function applyZoom() {
@@ -759,17 +765,13 @@ function showModal(seat) {
     h += fl('Brigadista', seat.brigadista || (p ? p.brigadista : ''));
     h += fl('Notas de Salud', p.notas);
     h += '<div class="modal-actions">';
-    if (isAdmin) {
-      h += '<button class="btn btn-success" onclick="editPerson(\\'' + p.name.replace(/'/g, "\\'") + '\\')">Edit Person</button> ';
-    }
-    h += '<button class="btn btn-primary" onclick="startReassign(\\'' + seat.seat_no + '\\')">Reasignar</button> ';
-    h += '<button class="btn btn-danger" onclick="confirmUnassign(\\'' + seat.seat_no + '\\')">Desasignar</button>';
+    h += '<button class="btn btn-primary" onclick="showRequestForm(\\'' + seat.seat_no + '\\')">Solicitar Cambio</button>';
     h += '</div>';
   } else {
     h += fl('Estado', 'Sin asignar', '<span style="color:#aaa;font-style:italic">Puesto vac\\u00edo</span>');
     if (seat.brigadista) h += fl('Brigadista', seat.brigadista);
     h += '<div class="modal-actions">';
-    h += '<button class="btn btn-primary" onclick="startAssign(\\'' + seat.seat_no + '\\')">Asignar Persona</button>';
+    h += '<button class="btn btn-primary" onclick="showRequestForm(\\'' + seat.seat_no + '\\')">Solicitar Cambio</button>';
     h += '</div>';
   }
   h += fl('Puesto', seat.seat_no);
@@ -1172,194 +1174,252 @@ function removeBrigadista(name) {
 }
 
 // ============================================================
-// SHAREPOINT LISTS API
+// PERSONNEL CHANGE REQUESTS API
 // ============================================================
-function getDigest() {
-  var d = document.querySelector('#__REQUESTDIGEST');
-  return d ? d.value : '';
-}
+var REQUESTS_LIST = 'Solicitudes';
 
-function spGet(listName) {
-  if (!isSharePoint) return Promise.resolve([]);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items?$top=5000";
-  return fetch(url, {
-    headers: { 'Accept': 'application/json;odata=verbose' }
-  }).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(data) {
-    return data.d.results || [];
-  });
-}
+var __spApiAvailable = true;
 
-function spCreate(listName, itemData) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest()
-    },
-    body: JSON.stringify(itemData)
-  }).then(function(r) { return r.json(); });
-}
-
-function spUpdate(listName, itemId, itemData) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest(),
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'MERGE'
-    },
-    body: JSON.stringify(itemData)
-  });
-}
-
-function spDelete(listName, itemId) {
-  if (!isSharePoint) return Promise.resolve(null);
-  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + listName + "')/items(" + itemId + ")";
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json;odata=verbose',
-      'X-RequestDigest': getDigest(),
-      'IF-MATCH': '*',
-      'X-HTTP-Method': 'DELETE'
+async function getRequestDigest() {
+  if (!__spApiAvailable) return null;
+  try {
+    var el = document.querySelector('#__REQUESTDIGEST');
+    if (el && el.value) return el.value;
+    var url = SHAREPOINT_SITE + "_api/contextinfo";
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json;odata=verbose' }
+    });
+    if (!r.ok) return null;
+    var data = await r.json();
+    if (data && data.d && data.d.GetContextWebInformation) {
+      return data.d.GetContextWebInformation.FormDigestValue;
     }
+    return null;
+  } catch (e) {
+    __spApiAvailable = false;
+    return null;
+  }
+}
+
+async function spCreateRequest(itemData) {
+  var digest = await getRequestDigest();
+  if (!digest) throw new Error('SharePoint not available');
+  var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items";
+  var r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': digest
+    },
+    body: JSON.stringify(itemData)
   });
+  if (!r.ok) {
+    var errText = await r.text();
+    throw new Error('HTTP ' + r.status + ': ' + errText);
+  }
+  return r.json();
+}
+
+function generateRequestId() {
+  var now = new Date();
+  var ds = now.getFullYear() +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+  var stored = safeLocalStorage.getItem('sortis_req_counter') || '0';
+  var n = parseInt(stored, 10) + 1;
+  safeLocalStorage.setItem('sortis_req_counter', String(n));
+  return 'REQ-' + ds + '-' + String(n).padStart(3, '0');
+}
+
+function showRequestForm(seatNo) {
+  var seat = getSeatByNo(seatNo);
+  if (!seat) return;
+  var p = seat.person;
+  var overlay = document.getElementById('modal-overlay');
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = "Solicitar Cambio - Puesto #" + seatNo;
+  var requestId = generateRequestId();
+  var now = new Date();
+  var dateStr = now.toISOString().split('T')[0];
+  var allDepts = DATA.departments || [];
+  var deptOptions = '';
+  for (var d = 0; d < allDepts.length; d++) {
+    deptOptions += '<option value="' + allDepts[d] + '">' + allDepts[d] + '</option>';
+  }
+  var h = '';
+  h += '<form id="request-form" onsubmit="return false">';
+  h += '<div class="form-group"><label>Request ID</label><input type="text" id="req-id" value="' + requestId + '" readonly></div>';
+  h += '<div class="form-group"><label>Request Date</label><input type="date" id="req-date" value="' + dateStr + '" readonly></div>';
+  h += '<div class="form-group"><label>Requestor Name *</label><input type="text" id="req-name" placeholder="Su nombre completo" required></div>';
+  h += '<div class="form-group"><label>Requestor Email *</label><input type="email" id="req-email" placeholder="su@correo.com" required></div>';
+  h += '<div class="form-group"><label>Department *</label><select id="req-dept" required>' + deptOptions + '</select></div>';
+  h += '<div class="form-group"><label>Position (Seat #)</label><input type="text" id="req-position" value="' + seatNo + '" readonly></div>';
+  h += '<div class="form-group"><label>Current Employee</label><input type="text" id="req-current" value="' + (p ? p.name : '') + '" readonly></div>';
+  h += '<div class="form-group"><label>Proposed Employee *</label><input type="text" id="req-proposed" placeholder="Nombre de la persona propuesta" required></div>';
+  h += '<div class="modal-actions">';
+  h += '<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>';
+  h += '<button type="button" class="btn btn-primary" id="btn-submit-request" onclick="submitRequest()">Enviar Solicitud</button>';
+  h += '</div>';
+  h += '</form>';
+  body.innerHTML = h;
+  overlay.classList.add('active');
+  document.getElementById('req-name').focus();
+}
+
+async function submitRequest() {
+  var btn = document.getElementById('btn-submit-request');
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+  try {
+    var name = document.getElementById('req-name').value.trim();
+    var email = document.getElementById('req-email').value.trim();
+    var dept = document.getElementById('req-dept').value;
+    var position = document.getElementById('req-position').value;
+    var current = document.getElementById('req-current').value;
+    var proposed = document.getElementById('req-proposed').value.trim();
+    if (!name) { toast("Requestor Name is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
+    if (!email || email.indexOf('@') < 0) { toast("Valid email is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
+    if (!proposed) { toast("Proposed Employee is required", 'error'); btn.disabled = false; btn.textContent = "Enviar Solicitud"; return; }
+    var requestId = document.getElementById('req-id').value;
+    var requestDate = document.getElementById('req-date').value;
+    var itemData = {
+      Title: requestId,
+      RequestDate: requestDate,
+      RequestorName: name,
+      RequestorEmail: email,
+      Department: dept,
+      Position: position,
+      CurrentEmployee: current || '',
+      ProposedEmployee: proposed
+    };
+    try {
+      await spCreateRequest(itemData);
+    } catch (e) {
+      // SharePoint unavailable (CSP blocks API in doc library context) - save locally
+      var history = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
+      history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
+      safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history));
+      closeModal();
+      toast("Solicitud #" + requestId + " guardada localmente (SharePoint no disponible)", 'info');
+      return;
+    }
+    var history = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
+    history.push({ id: requestId, date: requestDate, name: name, email: email, dept: dept, position: position });
+    safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history));
+    closeModal();
+    toast("Solicitud #" + requestId + " enviada exitosamente", 'success');
+  } catch (e) {
+    console.error('Request submission error:', e);
+    var requestId2 = document.getElementById('req-id').value;
+    if (requestId2) {
+      var history2 = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
+      history2.push({ id: requestId2, date: document.getElementById('req-date').value, name: document.getElementById('req-name').value, email: document.getElementById('req-email').value, dept: document.getElementById('req-dept').value, position: document.getElementById('req-position').value });
+      safeLocalStorage.setItem('sortis_request_backup', JSON.stringify(history2));
+    }
+    toast("Error al enviar solicitud. Guardada localmente.", 'error');
+    btn.disabled = false;
+    btn.textContent = "Enviar Solicitud";
+  }
+}
+
+var _allHistoryItems = [];
+
+function showRequestHistory() {
+  var overlay = document.getElementById('modal-overlay');
+  var body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = "Historial de Solicitudes";
+  var h = '<div style="margin-bottom:12px"><input type="text" id="history-search" placeholder="Buscar..." style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px" oninput="filterRequestHistory()"></div>';
+  h += '<div id="history-list" style="max-height:400px;overflow-y:auto">';
+  h += '<p style="color:#999;text-align:center;padding:20px">Cargando...</p>';
+  h += '</div>';
+  h += '<div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div>';
+  body.innerHTML = h;
+  overlay.classList.add('active');
+  loadRequestHistory();
+}
+
+async function loadRequestHistory() {
+  var container = document.getElementById('history-list');
+  if (!container) return;
+  try {
+    var url = SHAREPOINT_SITE + "_api/web/lists/getbytitle('" + REQUESTS_LIST + "')/items?$orderby=Created desc&$top=200";
+    var r = await fetch(url, {
+      headers: { 'Accept': 'application/json;odata=verbose' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    var items = (data && data.d && data.d.results) ? data.d.results : [];
+    renderRequestHistory(items, container);
+  } catch (e) {
+    var backup = JSON.parse(safeLocalStorage.getItem('sortis_request_backup') || '[]');
+    if (backup.length > 0) {
+      renderRequestHistory(backup, container);
+    } else {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:20px">No se pudieron cargar las solicitudes. Verifique la conexion.</p>';
+    }
+  }
+}
+
+function renderRequestHistory(items, container) {
+  _allHistoryItems = items;
+  if (!items || items.length === 0) {
+    container.innerHTML = '<p style="color:#999;text-align:center;padding:20px">No hay solicitudes registradas.</p>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:#f5f5f5">';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Request ID</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Fecha</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Solicitante</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Departamento</th>';
+  h += '<th style="padding:8px;border-bottom:2px solid #ddd;text-align:left">Puesto</th>';
+  h += '</tr></thead><tbody>';
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    var id = it.Title || it.id || 'N/A';
+    var date = it.RequestDate || it.date || 'N/A';
+    var name = it.RequestorName || it.name || '';
+    var dept = it.Department || it.dept || '';
+    var pos = it.Position || it.position || 'N/A';
+    if (date && date.length > 10) date = date.substring(0, 10);
+    h += '<tr style="border-bottom:1px solid #eee">';
+    h += '<td style="padding:8px;font-weight:600">' + id + '</td>';
+    h += '<td style="padding:8px">' + date + '</td>';
+    h += '<td style="padding:8px">' + name + '</td>';
+    h += '<td style="padding:8px">' + dept + '</td>';
+    h += '<td style="padding:8px">' + pos + '</td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  container.innerHTML = h;
+}
+
+function filterRequestHistory() {
+  var q = document.getElementById('history-search').value.toLowerCase();
+  var filtered = _allHistoryItems.filter(function(item) {
+    var id = (item.Title || item.id || '').toLowerCase();
+    var name = (item.RequestorName || item.name || '').toLowerCase();
+    var dept = (item.Department || item.dept || '').toLowerCase();
+    var pos = (item.Position || item.position || '').toLowerCase();
+    return id.indexOf(q) >= 0 || name.indexOf(q) >= 0 || dept.indexOf(q) >= 0 || pos.indexOf(q) >= 0;
+  });
+  var container = document.getElementById('history-list');
+  renderRequestHistory(filtered, container);
 }
 
 function loadFromSharePointLists() {
-  if (!isSharePoint) return;
-  document.getElementById('sp-status').classList.add('connected');
-
-  Promise.all([spGet(PEOPLE_LIST), spGet(SEATS_LIST)]).then(function(results) {
-    spPeople = results[0];
-    spSeats = results[1];
-
-    // Build people_directory from People list
-    var peopleDir = [];
-    spPeople.forEach(function(item) {
-      peopleDir.push({
-        name: item.Title || '',
-        department: item.Department || '',
-        title: item.JobTitle || '',
-        _spId: item.Id
-      });
-    });
-    LOCAL_DATA.people_directory = peopleDir;
-
-    // Build brigadistas from People list (filter Status = Brigadista or separate logic)
-    // For now, keep existing brigadistas logic
-
-    // Build seats from Seats list + static seat_positions
-    var seatMap = {};
-    spSeats.forEach(function(item) {
-      seatMap[item.Title] = {
-        name: item.PersonName || null,
-        brigadista: item.Brigadista || null,
-        notas: item.Notas || null,
-        _spId: item.Id
-      };
-    });
-
-    LOCAL_DATA.seats = STATIC_DATA.seat_positions.map(function(sp) {
-      var seatNo = sp.seat_no;
-      var alloc = seatMap[seatNo];
-      var person = null;
-      if (alloc && alloc.name) {
-        var pd = null;
-        for (var i = 0; i < peopleDir.length; i++) {
-          if (peopleDir[i].name === alloc.name) { pd = peopleDir[i]; break; }
-        }
-        person = {
-          name: alloc.name,
-          brigadista: alloc.brigadista,
-          notas: alloc.notas,
-          department: pd ? pd.department : null,
-          title: pd ? pd.title : null
-        };
-      }
-      return {
-        row: sp.row,
-        col: sp.col,
-        seat_no: seatNo,
-        person: person,
-        brigadista: alloc ? alloc.brigadista : null
-      };
-    });
-
-    // Update departments
-    var depts = {};
-    LOCAL_DATA.seats.forEach(function(s) {
-      if (s.person && s.person.department) depts[s.person.department] = 1;
-    });
-    LOCAL_DATA.departments = Object.keys(depts).sort();
-
-    // Update brigadistas
-    var brig = {};
-    LOCAL_DATA.seats.forEach(function(s) {
-      if (s.brigadista) brig[s.brigadista] = 1;
-    });
-    LOCAL_DATA.brigadistas = Object.keys(brig).sort();
-
-    refreshGrid();
-    toast('Data loaded from SharePoint Lists', 'success');
-  }).catch(function(err) {
-    console.error('SharePoint load error:', err);
-    toast('Could not connect to SharePoint, using local data', 'info');
-  });
+  // Legacy function - requests handle their own data loading
 }
 
 function saveToSharePointLists() {
-  if (!isSharePoint || !hasChanges) return;
-
-  // Save each seat assignment
-  var promises = [];
-  LOCAL_DATA.seats.forEach(function(seat) {
-    var spSeat = null;
-    for (var i = 0; i < spSeats.length; i++) {
-      if (spSeats[i].Title === seat.seat_no) { spSeat = spSeats[i]; break; }
-    }
-
-    if (seat.person) {
-      var data = {
-        Title: seat.seat_no,
-        PersonName: seat.person.name || '',
-        Brigadista: seat.brigadista || '',
-        Notas: seat.person.notas || ''
-      };
-      if (spSeat) {
-        promises.push(spUpdate(SEATS_LIST, spSeat.Id, data));
-      } else {
-        promises.push(spCreate(SEATS_LIST, data));
-      }
-    } else if (spSeat) {
-      promises.push(spDelete(SEATS_LIST, spSeat.Id));
-    }
-  });
-
-  Promise.all(promises).then(function() {
-    hasChanges = false;
-    toast('Changes saved to SharePoint', 'success');
-  }).catch(function(err) {
-    console.error('SharePoint save error:', err);
-    toast('Error saving to SharePoint', 'error');
-  });
+  // Legacy function - no longer used
 }
 
 var saveTimeout = null;
 function autoSave() {
-  if (!isSharePoint) return;
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(function() { saveToSharePointLists(); }, 2000);
+  // Legacy function - no longer used
 }
 
 function updateCounter() {
@@ -1463,7 +1523,7 @@ var DEFAULT_ROOM_COLORS = JSON.parse(JSON.stringify(ROOM_COLORS));
 
 function loadCustomColors() {
   try {
-    var saved = localStorage.getItem('sortis_custom_colors');
+    var saved = safeLocalStorage.getItem('sortis_custom_colors');
     if (saved) {
       var data = JSON.parse(saved);
       if (data.dept) { for (var k in data.dept) { DEPT_COLORS[k] = data.dept[k]; } }
@@ -1473,13 +1533,13 @@ function loadCustomColors() {
 }
 
 function saveCustomColors(deptColors, roomColors) {
-  localStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
+  safeLocalStorage.setItem('sortis_custom_colors', JSON.stringify({ dept: deptColors, room: roomColors }));
 }
 
 function resetColors() {
   for (var k in DEFAULT_DEPT_COLORS) { DEPT_COLORS[k] = DEFAULT_DEPT_COLORS[k]; }
   for (var k in DEFAULT_ROOM_COLORS) { ROOM_COLORS[k] = DEFAULT_ROOM_COLORS[k]; }
-  localStorage.removeItem('sortis_custom_colors');
+  safeLocalStorage.removeItem('sortis_custom_colors');
   refreshGrid();
   initLegend();
   toast('Colors reset to defaults', 'info');
@@ -1552,7 +1612,7 @@ var customRooms = [];
 
 function loadCustomRooms() {
   try {
-    var saved = localStorage.getItem('sortis_custom_rooms');
+    var saved = safeLocalStorage.getItem('sortis_custom_rooms');
     if (saved) customRooms = JSON.parse(saved);
   } catch(e) { customRooms = []; }
   var staticNames = {};
@@ -1563,7 +1623,7 @@ function loadCustomRooms() {
 }
 
 function saveCustomRooms() {
-  localStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
+  safeLocalStorage.setItem('sortis_custom_rooms', JSON.stringify(customRooms));
 }
 
 function toggleRoomEditor() {
@@ -1837,7 +1897,7 @@ function deleteSelectedRoom() {
 
 function resetCustomRooms() {
   customRooms = [];
-  localStorage.removeItem('sortis_custom_rooms');
+  safeLocalStorage.removeItem('sortis_custom_rooms');
   refreshGrid();
   addRoomEditorListeners();
   toast('Rooms reset to defaults', 'info');
@@ -2238,9 +2298,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initLegend();
   initModalClose();
   updateCounter();
-  if (isSharePoint) {
-    loadFromSharePointLists();
-  }
+  // Requests are loaded on demand via showRequestHistory()
 });
 </script>
 </body>

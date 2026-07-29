@@ -21,6 +21,7 @@ class SeatItem(QGraphicsRectItem):
         self.seat_data = seat_data
         self._selected = False
         self._hovered = False
+        self._dimmed = False
 
         person = seat_data.get("person")
         self.occupied = person is not None
@@ -65,23 +66,40 @@ class SeatItem(QGraphicsRectItem):
             color = QColor(SEAT_HOVER_COLOR)
         if self._selected:
             color = QColor(SEAT_SELECTED_COLOR)
+        alpha = 60 if self._dimmed else 255
+        color.setAlpha(alpha)
         painter.setBrush(QBrush(color))
         border = QColor("#fff" if self.occupied else "#999")
+        border.setAlpha(alpha)
         painter.setPen(QPen(border, 0.5))
         painter.drawRoundedRect(self.rect(), 2, 2)
 
-        if self.occupied and not self._hovered and not self._selected:
+        if self.occupied and not self._hovered and not self._selected and not self._dimmed:
             painter.setBrush(QBrush(QColor("#4caf50")))
             painter.setPen(Qt.PenStyle.NoPen)
             dot_rect = self.rect().adjusted(2, 2, -2, -2)
             painter.drawEllipse(dot_rect.topRight() + dot_rect.bottomRight(), 2, 2)
 
+    def set_dimmed(self, dimmed):
+        self._dimmed = dimmed
+        self.setAcceptHoverEvents(not dimmed)
+        self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton if not dimmed else Qt.MouseButton.NoButton)
+        self.setCursor(Qt.CursorShape.ArrowCursor if dimmed else Qt.CursorShape.PointingHandCursor)
+        self.update()
+
     def hoverEnterEvent(self, event):
+        if self._dimmed:
+            return
+        self._hovered = True
+        self.update()
+        super().hoverEnterEvent(event)
         self._hovered = True
         self.update()
         super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
+        if self._dimmed:
+            return
         self._hovered = False
         self.update()
         super().hoverLeaveEvent(event)
@@ -91,6 +109,8 @@ class SeatItem(QGraphicsRectItem):
         self.update()
 
     def mousePressEvent(self, event):
+        if self._dimmed:
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             scene = self.scene()
             if scene and hasattr(scene, "select_seat_item"):

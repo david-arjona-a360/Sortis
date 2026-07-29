@@ -19,6 +19,8 @@ class FloorPlanScene(QGraphicsScene):
         self.seat_items = []
         self.selected_seat = None
         self.on_seat_selected = None
+        self._occupancy_filter = "all"
+        self._department_filter = None
         self.setBackgroundBrush(QBrush(QColor(COLORS["grid_bg"])))
 
     def load(self):
@@ -67,3 +69,20 @@ class FloorPlanScene(QGraphicsScene):
         self.clear_selection()
         seat_item.set_selected(True)
         self.selected_seat = seat_item
+
+    def apply_filters(self, occupancy="all", department=None):
+        self._occupancy_filter = occupancy
+        self._department_filter = department
+        for item in self.seat_items:
+            matches_occupancy = (
+                occupancy == "all" or
+                (occupancy == "occupied" and item.occupied) or
+                (occupancy == "vacant" and not item.occupied)
+            )
+            person = item.seat_data.get("person")
+            seat_dept = person["department"] if person else None
+            matches_dept = (
+                department is None or department == "All Departments" or
+                seat_dept == department
+            )
+            item.set_dimmed(not (matches_occupancy and matches_dept))

@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         self.scene.load()
         if hasattr(self, "request_panel"):
             self.request_panel.refresh()
+            self._sync_departments()
 
     def _setup_menu(self):
         menubar = self.menuBar()
@@ -123,6 +124,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(splitter)
 
         self.scene.on_seat_selected = self._on_seat_selected
+        if hasattr(self, "request_panel"):
+            self.request_panel.on_filter_changed = self._on_filters_changed
+
+    def _on_filters_changed(self, occupancy, department):
+        dept = None if department == "All Departments" else department
+        self.scene.apply_filters(occupancy, dept)
+
+    def _sync_departments(self):
+        data = getattr(self.scene, "data", {})
+        depts = data.get("departments", [])
+        if depts and hasattr(self, "request_panel"):
+            self.request_panel.set_departments(depts)
 
     def _setup_status_bar(self):
         self.status_bar = QStatusBar()
@@ -197,6 +210,7 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("Data refreshed", 3000)
         if self.request_panel:
             self.request_panel.refresh()
+            self._sync_departments()
 
     def _zoom_in(self):
         self.view.zoom_in()

@@ -16,6 +16,7 @@ _OCCUPIED_COLOR = "#4caf50"
 _VACANT_COLOR = "#ff9800"
 _DEPT_COLOR = "#5c8aff"
 _FALLBACK_COLOR = "#666"
+_ERROR_COLOR = "#ff0000"
 
 
 class SeatInfoPanel(QWidget):
@@ -114,6 +115,10 @@ class SeatInfoPanel(QWidget):
         person = seat_data.get("person")
 
         self._add_info_row("Seat", f"#{seat_data['seat_no']}")
+
+        status = seat_data.get("status")
+        if status:
+            self._add_info_row("Status", status, _ERROR_COLOR)
 
         if person:
             dept = person.get("department") or seat_data.get("department")

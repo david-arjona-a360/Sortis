@@ -74,6 +74,7 @@ def read_seats_allocation(wb):
         notas = ws.cell(row, 4).value
         department = ws.cell(row, 5).value
         title = ws.cell(row, 6).value
+        status = ws.cell(row, 7).value
         name_str = fix_encoding(str(name).strip()) if name else None
         seat_key = normalize_seat_no(seat_no_raw)
         if seat_key is None:
@@ -84,6 +85,7 @@ def read_seats_allocation(wb):
             "notas": fix_encoding(str(notas).strip()) if notas else None,
             "department": fix_encoding(str(department).strip()) if department else None,
             "title": fix_encoding(str(title).strip()) if title else None,
+            "status": fix_encoding(str(status).strip().upper()) if status else None,
         }
     return seats
 
@@ -158,6 +160,7 @@ def build_output(rooms, grid_seats, seats_alloc, active_users):
                 "title": pty.get("title") or alloc.get("title"),
                 "employee_number": pty.get("employee_number"),
             }
+        status = alloc.get("status")
         output_seats.append({
             "seat_no": seat_no,
             "row": gs["row"],
@@ -165,6 +168,7 @@ def build_output(rooms, grid_seats, seats_alloc, active_users):
             "person": person,
             "brigadista": alloc.get("brigadista"),
             "notas": alloc.get("notas"),
+            "status": status if status in ("ERROR",) else None,
         })
 
     return {

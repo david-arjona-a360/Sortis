@@ -25,8 +25,12 @@ class SeatItem(QGraphicsRectItem):
 
         person = seat_data.get("person")
         self.occupied = person is not None
-        dept = person["department"] if person else None
-        self.color = DEPT_COLORS.get(dept, SEAT_COLOR_FREE) if dept else SEAT_COLOR_FREE
+        self._status = seat_data.get("status")
+        if self._status == "ERROR":
+            self.color = "#ff0000"
+        else:
+            dept = person["department"] if person else None
+            self.color = DEPT_COLORS.get(dept, SEAT_COLOR_FREE) if dept else SEAT_COLOR_FREE
         self.setBrush(QBrush(QColor(self.color)))
         self.setPen(QPen(QColor("#000"), 0))
         self.setAcceptHoverEvents(True)
@@ -57,6 +61,8 @@ class SeatItem(QGraphicsRectItem):
             lines.append("<i>Unassigned</i>")
         if sd.get("brigadista"):
             lines.append(f"Brig: {sd['brigadista']}")
+        if sd.get("status"):
+            lines.append(f"Status: <b>{sd['status']}</b>")
         lines.append(f"Loc: ({sd['row']}, {sd['col']})")
         self.setToolTip("<br>".join(lines))
 

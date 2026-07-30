@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 
 from src.models.request import Request
 from src.core.request_store import RequestStore
+from src.core.validator import find_duplicate
 
 
 class RequestDialog(QDialog):
@@ -84,6 +85,15 @@ class RequestDialog(QDialog):
         proposed = self.proposed_employee.text().strip()
         if not proposed:
             QMessageBox.warning(self, "Validation", "Proposed Employee is required")
+            return
+
+        dup = find_duplicate(self.store, self.seat_data["seat_no"], proposed)
+        if dup:
+            QMessageBox.warning(
+                self, "Duplicate",
+                f"A request already exists for seat #{self.seat_data['seat_no']} "
+                f"with proposed employee '{proposed}':\n{dup.id}"
+            )
             return
 
         self.request = Request(

@@ -1,20 +1,21 @@
-from PySide6.QtCore import Qt, QPointF
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
-    QMainWindow, QHBoxLayout, QVBoxLayout, QWidget,
-    QLabel, QPushButton, QStatusBar, QMenu,
-    QSplitter, QFrame, QGraphicsItem,
-    QMessageBox, QToolBar,
+    QMainWindow, QVBoxLayout, QWidget,
+    QLabel, QStatusBar, QMenu,
+    QSplitter, QFrame, QMessageBox,
 )
 
 from src.ui.floor_plan_scene import FloorPlanScene
 from src.ui.floor_plan_view import FloorPlanView
-from src.ui.request_panel import RequestPanel
+from src.ui.filter_bar import FilterBar
+from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
 from src.core.request_store import RequestStore
 from src.core.health_check import run_health_check
 from src.core.path_config import get_requests_path, get_logs_path
 from src.core.log_manager import LogManager
+from src.core.exporter import export_to_pdf, export_to_xlsx
 from src.theme.theme import COLORS
 
 
@@ -39,8 +40,7 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
         self._run_health()
         self.scene.load()
-        if hasattr(self, "request_panel"):
-            self.request_panel.refresh()
+        self._sync_departments()
 
     def _setup_menu(self):
         menubar = self.menuBar()
@@ -50,6 +50,13 @@ class MainWindow(QMainWindow):
         refresh_action.setShortcut(QKeySequence("F5"))
         refresh_action.triggered.connect(self._refresh_data)
         file_menu.addAction(refresh_action)
+        file_menu.addSeparator()
+        export_pdf = QAction("Export Requests to PDF...", self)
+        export_pdf.triggered.connect(self._export_pdf)
+        file_menu.addAction(export_pdf)
+        export_xlsx = QAction("Export Requests to Excel...", self)
+        export_xlsx.triggered.connect(self._export_xlsx)
+        file_menu.addAction(export_xlsx)
         file_menu.addSeparator()
         exit_action = QAction("Exit", self)
         exit_action.setShortcut(QKeySequence("Ctrl+Q"))
@@ -82,39 +89,63 @@ class MainWindow(QMainWindow):
         self.view = FloorPlanView(self.scene, self)
         self.view.setFrameShape(QFrame.Shape.NoFrame)
 
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_bar = FilterBar()
+        self.filter_bar.filter_changed.connect(self._on_filters_changed)
 
-        seat_info_label = QLabel("Click a seat to view details")
-        seat_info_label.setFont(QFont("Segoe UI", 10))
-        seat_info_label.setStyleSheet("padding: 8px; background: #fff; border-bottom: 1px solid #ddd;")
-        right_layout.addWidget(seat_info_label)
-        self._seat_info = seat_info_label
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+        left_layout.addWidget(self.filter_bar)
+        left_layout.addWidget(self.view, stretch=1)
 
-        request_seat_btn = QPushButton("Request Change for Selected Seat")
-        request_seat_btn.clicked.connect(self._request_for_selected)
-        request_seat_btn.setEnabled(False)
-        right_layout.addWidget(request_seat_btn)
-        self._request_btn = request_seat_btn
-
-        requests_dir = get_requests_path()
-        if requests_dir:
-            self.request_panel = RequestPanel(self.store, self)
-            right_layout.addWidget(self.request_panel, stretch=1)
-        else:
-            placeholder = QLabel("Requests directory not found")
-            right_layout.addWidget(placeholder, stretch=1)
+        self.seat_info_panel = SeatInfoPanel()
+        self.seat_info_panel.request_clicked.connect(self._request_for_selected)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.view)
-        splitter.addWidget(right_panel)
+        splitter.addWidget(left_widget)
+        splitter.addWidget(self.seat_info_panel)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
 
         self.setCentralWidget(splitter)
 
         self.scene.on_seat_selected = self._on_seat_selected
+
+    def _on_filters_changed(self, occupancy, department):
+        dept = None if department == "All Departments" else department
+        self.scene.apply_filters(occupancy, dept)
+        self._push_counts()
+        occ, vac = self._calculate_counts(self.filter_bar.current_department)
+        self.seat_info_panel.set_stats(occ + vac, occ, vac)
+
+    def _calculate_counts(self, department=None):
+        occ = 0
+        vac = 0
+        for item in self.scene.seat_items:
+            person = item.seat_data.get("person")
+            seat_dept = person["department"] if person else None
+            if department and department != "All Departments" and seat_dept != department:
+                continue
+            if item.occupied:
+                occ += 1
+            else:
+                vac += 1
+        return occ, vac
+
+    def _push_counts(self):
+        dept = self.filter_bar.current_department
+        occ, vac = self._calculate_counts(dept)
+        self.filter_bar.set_counts(occ + vac, occ, vac)
+
+    def _sync_departments(self):
+        data = getattr(self.scene, "data", {})
+        depts = data.get("departments", [])
+        if depts:
+            self.filter_bar.set_departments(depts)
+        self._push_counts()
+        occ, vac = self._calculate_counts("All Departments")
+        self.seat_info_panel.set_stats(occ + vac, occ, vac)
 
     def _setup_status_bar(self):
         self.status_bar = QStatusBar()
@@ -133,20 +164,7 @@ class MainWindow(QMainWindow):
                 break
 
     def _on_seat_selected(self, seat_item):
-        sd = seat_item.seat_data
-        person = sd.get("person")
-        if person:
-            self._seat_info.setText(
-                f"<b>Seat #{sd['seat_no']}</b><br>"
-                f"{person.get('name', '')}<br>"
-                f"{person.get('department', '')} - {person.get('title', '')}"
-            )
-        else:
-            self._seat_info.setText(
-                f"<b>Seat #{sd['seat_no']}</b><br>"
-                f"<i>Unassigned</i>"
-            )
-        self._request_btn.setEnabled(True)
+        self.seat_info_panel.show_seat_info(seat_item.seat_data)
         self._current_seat = seat_item
 
     def _request_for_selected(self):
@@ -165,14 +183,29 @@ class MainWindow(QMainWindow):
                     details={"position": seat_data["seat_no"]},
                 )
             self.status_bar.showMessage(f"Request {dlg.request.id} created", 5000)
-            self.request_panel.refresh()
+
+    def _export_pdf(self):
+        reqs = self.store.list_all()
+        if not reqs:
+            QMessageBox.information(self, "Export", "No requests to export")
+            return
+        export_to_pdf(reqs, self)
+        self.status_bar.showMessage("PDF exported", 3000)
+
+    def _export_xlsx(self):
+        reqs = self.store.list_all()
+        if not reqs:
+            QMessageBox.information(self, "Export", "No requests to export")
+            return
+        export_to_xlsx(reqs, self)
+        self.status_bar.showMessage("Excel exported", 3000)
 
     def _refresh_data(self):
         self.scene.load()
         self.view._apply_zoom()
         self.status_bar.showMessage("Data refreshed", 3000)
-        if self.request_panel:
-            self.request_panel.refresh()
+        self._sync_departments()
+        self.seat_info_panel.clear_selection()
 
     def _zoom_in(self):
         self.view.zoom_in()

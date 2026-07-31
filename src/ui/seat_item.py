@@ -2,8 +2,9 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPen
 from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QGraphicsItem
 
+from src.core.color_manager import DeptColorManager
 from src.theme.theme import (
-    CELL_W, CELL_H, CELL_GAP, DEPT_COLORS,
+    CELL_W, CELL_H, CELL_GAP,
     SEAT_COLOR_FREE, SEAT_HOVER_COLOR, SEAT_SELECTED_COLOR,
 )
 
@@ -30,7 +31,7 @@ class SeatItem(QGraphicsRectItem):
             self.color = "#ff0000"
         else:
             dept = person["department"] if person else None
-            self.color = DEPT_COLORS.get(dept, SEAT_COLOR_FREE) if dept else SEAT_COLOR_FREE
+            self.color = DeptColorManager.get_color(dept, fallback=SEAT_COLOR_FREE)
         self.setBrush(QBrush(QColor(self.color)))
         self.setPen(QPen(QColor("#000"), 0))
         self.setAcceptHoverEvents(True)

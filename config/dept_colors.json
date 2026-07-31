@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "default_color": "#e0e0e0",
+  "departments": {
+    "ADM": "#50505a",
+    "Finance": "#50505a",
+    "FS": "#bfc1c5",
+    "IBC": "#d6d8db",
+    "IT": "#dc1e28",
+    "POCPro": "#d6d8db",
+    "ProVest": "#f5c6cb",
+    "ProVest F&A": "#e78c92",
+    "Title": "#f5c6cb",
+    "Trainer": "#d6d8db",
+    "VS360": "#a8323b",
+    "Compliance": "#2E8B57",
+    "ENS": "#4682B4"
+  }
+}

@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime, timezone
 from .file_utils import atomic_write_json, read_json_file, ensure_directory
 
 
@@ -54,6 +55,22 @@ class RequestStore:
             os.remove(path)
             return True
         return False
+
+    def set_status(self, request_id, status, by=None):
+        from ..models.request import REQUEST_STATUSES, STATUS_PENDING
+        path = self._path(request_id)
+        if not os.path.exists(path) or status not in REQUEST_STATUSES:
+            return False
+        data = read_json_file(path)
+        data["status"] = status
+        if status == STATUS_PENDING:
+            data["resolved_at"] = ""
+            data["resolved_by"] = ""
+        else:
+            data["resolved_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            data["resolved_by"] = by or ""
+        atomic_write_json(self.requests_dir, self._filename(request_id), data)
+        return True
 
     def count(self):
         self._ensure_dir()

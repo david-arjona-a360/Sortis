@@ -17,3 +17,14 @@ COLORS = {
     "dock_bg": "#ffffff",
     "dock_border": "#ddd",
 }
+
+# Centralized role styling. Key = internal role (never shown raw); the
+# label is the friendly display text and bg/fg define the pill colors.
+# Add future roles here (e.g. "superadmin") — no other code changes needed.
+ROLE_STYLES = {
+    "admin": {"label": "Administrator", "bg": "#dc1e28", "fg": "#ffffff"},
+    "user": {"label": "User", "bg": "#3949ab", "fg": "#ffffff"},
+    "superadmin": {"label": "Super Administrator", "bg": "#f9a825", "fg": "#333333"},
+}
+
+ROLE_FALLBACK_STYLE = {"label": "", "bg": "#757575", "fg": "#ffffff"}

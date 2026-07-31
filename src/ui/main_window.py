@@ -12,6 +12,7 @@ from src.ui.filter_bar import FilterBar
 from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
 from src.ui.admin_requests_dialog import AdminRequestsDialog
+from src.ui.user_badge import UserBadge
 from src.core.request_store import RequestStore
 from src.core.auth_manager import AuthManager
 from src.core.health_check import run_health_check
@@ -91,6 +92,10 @@ class MainWindow(QMainWindow):
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
+
+        self.user_badge = UserBadge(AuthManager.get_user_info(), self)
+        self.user_badge.add_menu_action("About...", self._show_about)
+        self.menuBar().setCornerWidget(self.user_badge, Qt.Corner.TopRightCorner)
 
     def _setup_central(self):
         self.scene = FloorPlanScene(self)

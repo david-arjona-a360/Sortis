@@ -2,6 +2,12 @@ import uuid
 from datetime import datetime, timezone
 
 
+STATUS_PENDING = "pending"
+STATUS_COMPLETED = "completed"
+STATUS_CANCELLED = "cancelled"
+REQUEST_STATUSES = (STATUS_PENDING, STATUS_COMPLETED, STATUS_CANCELLED)
+
+
 class Request:
     def __init__(self, requestor_name, requestor_email, department,
                  position, current_employee, proposed_employee):
@@ -17,7 +23,10 @@ class Request:
         self.current_employee = current_employee or ""
         self.proposed_employee = proposed_employee
         self.created_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        self.version = 1
+        self.version = 2
+        self.status = STATUS_PENDING
+        self.resolved_at = ""
+        self.resolved_by = ""
 
     def to_dict(self):
         return {
@@ -30,6 +39,9 @@ class Request:
             "current_employee": self.current_employee,
             "proposed_employee": self.proposed_employee,
             "created_at": self.created_at,
+            "status": self.status,
+            "resolved_at": self.resolved_at,
+            "resolved_by": self.resolved_by,
             "version": self.version,
         }
 
@@ -47,4 +59,7 @@ class Request:
         r.date = data["date"]
         r.created_at = data.get("created_at", data["date"] + "T00:00:00Z")
         r.version = data.get("version", 1)
+        r.status = data.get("status", STATUS_PENDING)
+        r.resolved_at = data.get("resolved_at", "")
+        r.resolved_by = data.get("resolved_by", "")
         return r

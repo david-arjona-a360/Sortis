@@ -81,12 +81,6 @@ class SeatItem(QGraphicsRectItem):
         painter.setPen(QPen(border, 0.5))
         painter.drawRoundedRect(self.rect(), 2, 2)
 
-        if self.occupied and not self._hovered and not self._selected and not self._dimmed:
-            painter.setBrush(QBrush(QColor("#4caf50")))
-            painter.setPen(Qt.PenStyle.NoPen)
-            dot_rect = self.rect().adjusted(2, 2, -2, -2)
-            painter.drawEllipse(dot_rect.topRight() + dot_rect.bottomRight(), 2, 2)
-
     def set_dimmed(self, dimmed):
         self._dimmed = dimmed
         self.setAcceptHoverEvents(not dimmed)

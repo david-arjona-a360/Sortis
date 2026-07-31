@@ -11,7 +11,9 @@ from src.ui.floor_plan_view import FloorPlanView
 from src.ui.filter_bar import FilterBar
 from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
+from src.ui.admin_requests_dialog import AdminRequestsDialog
 from src.core.request_store import RequestStore
+from src.core.auth_manager import AuthManager
 from src.core.health_check import run_health_check
 from src.core.path_config import get_requests_path, get_logs_path
 from src.core.log_manager import LogManager
@@ -78,6 +80,12 @@ class MainWindow(QMainWindow):
         zoom_reset.setShortcut(QKeySequence("Ctrl+0"))
         zoom_reset.triggered.connect(self._zoom_reset)
         view_menu.addAction(zoom_reset)
+
+        if AuthManager.is_admin():
+            admin_menu = menubar.addMenu("Admin")
+            manage_requests = QAction("Manage Requests...", self)
+            manage_requests.triggered.connect(self._open_admin_requests)
+            admin_menu.addAction(manage_requests)
 
         help_menu = menubar.addMenu("Help")
         about_action = QAction("About", self)
@@ -183,6 +191,10 @@ class MainWindow(QMainWindow):
                     details={"position": seat_data["seat_no"]},
                 )
             self.status_bar.showMessage(f"Request {dlg.request.id} created", 5000)
+
+    def _open_admin_requests(self):
+        dlg = AdminRequestsDialog(self.store, self)
+        dlg.exec()
 
     def _export_pdf(self):
         reqs = self.store.list_all()

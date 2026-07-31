@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QComboBox, QPushButton, QLabel, QMessageBox, QHeaderView,
+    QComboBox, QPushButton, QLabel, QMessageBox, QHeaderView, QFrame,
 )
 
 from src.core.auth_manager import AuthManager
@@ -10,6 +10,8 @@ from src.core.exporter import export_to_pdf, export_to_xlsx
 from src.models.request import (
     STATUS_PENDING, STATUS_COMPLETED, STATUS_CANCELLED,
 )
+from src.theme.theme import STATUS_STYLES, TEXT_DISABLED
+from src.ui.dialog_theme import apply_dialog_theme, style_button
 
 _STATUS_LABELS = {
     STATUS_PENDING: "Pending",
@@ -17,11 +19,7 @@ _STATUS_LABELS = {
     STATUS_CANCELLED: "Cancelled",
 }
 
-_STATUS_COLORS = {
-    STATUS_PENDING: QColor("#b8860b"),
-    STATUS_COMPLETED: QColor("#2e7d32"),
-    STATUS_CANCELLED: QColor("#c62828"),
-}
+_STATUS_FALLBACK = ("#454545", "#ffffff")
 
 
 class AdminRequestsDialog(QDialog):
@@ -31,9 +29,16 @@ class AdminRequestsDialog(QDialog):
         self.requests = []
 
         self.setWindowTitle("Admin - Request Management")
-        self.resize(1000, 540)
+        self.resize(1000, 580)
+        apply_dialog_theme(self)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
+
+        title = QLabel("Request Management")
+        title.setProperty("role", "title")
+        layout.addWidget(title)
 
         top = QHBoxLayout()
         top.addWidget(QLabel("Status:"))
@@ -51,6 +56,7 @@ class AdminRequestsDialog(QDialog):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -58,24 +64,47 @@ class AdminRequestsDialog(QDialog):
         self.table.itemSelectionChanged.connect(self._update_selection)
         layout.addWidget(self.table, stretch=1)
 
+        card = QFrame()
+        card.setObjectName("cardFrame")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(12, 8, 12, 8)
+        card_layout.setSpacing(4)
+        details_header = QLabel("Request Details")
+        details_header.setProperty("role", "section")
+        card_layout.addWidget(details_header)
         self.details = QLabel()
         self.details.setWordWrap(True)
         self.details.setTextFormat(Qt.TextFormat.RichText)
-        self.details.setStyleSheet("color: #444;")
-        layout.addWidget(self.details)
+        card_layout.addWidget(self.details)
+        layout.addWidget(card)
+
+        actions_header = QLabel("Actions")
+        actions_header.setProperty("role", "section")
+        layout.addWidget(actions_header)
 
         buttons = QHBoxLayout()
+        buttons.setSpacing(8)
         self.btn_complete = QPushButton("Mark Completed")
+        style_button(self.btn_complete, "primary")
         self.btn_cancel = QPushButton("Mark Cancelled")
+        style_button(self.btn_cancel, "danger")
         self.btn_reopen = QPushButton("Reopen")
+        style_button(self.btn_reopen)
+        buttons.addWidget(self.btn_complete)
+        buttons.addWidget(self.btn_cancel)
+        buttons.addWidget(self.btn_reopen)
+        buttons.addStretch(1)
         self.btn_pdf = QPushButton("Export PDF")
+        style_button(self.btn_pdf)
         self.btn_xlsx = QPushButton("Export Excel")
+        style_button(self.btn_xlsx)
         self.btn_refresh = QPushButton("Refresh")
+        style_button(self.btn_refresh)
         self.btn_close = QPushButton("Close")
-
-        for btn in (self.btn_complete, self.btn_cancel, self.btn_reopen,
-                    self.btn_pdf, self.btn_xlsx, self.btn_refresh, self.btn_close):
+        style_button(self.btn_close)
+        for btn in (self.btn_pdf, self.btn_xlsx, self.btn_refresh, self.btn_close):
             buttons.addWidget(btn)
+        layout.addLayout(buttons)
 
         self.btn_complete.clicked.connect(lambda: self._set_status(STATUS_COMPLETED))
         self.btn_cancel.clicked.connect(lambda: self._set_status(STATUS_CANCELLED))
@@ -84,8 +113,6 @@ class AdminRequestsDialog(QDialog):
         self.btn_xlsx.clicked.connect(self._export_xlsx)
         self.btn_refresh.clicked.connect(self._refresh)
         self.btn_close.clicked.connect(self.accept)
-
-        layout.addLayout(buttons)
 
         self._refresh()
 
@@ -102,8 +129,11 @@ class AdminRequestsDialog(QDialog):
         for req in self.requests:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            status_item = QTableWidgetItem(_STATUS_LABELS.get(req.status, req.status.capitalize()))
-            status_item.setForeground(_STATUS_COLORS.get(req.status, QColor("#000")))
+            label = _STATUS_LABELS.get(req.status, req.status.capitalize())
+            bg, fg = STATUS_STYLES.get(req.status, _STATUS_FALLBACK)
+            status_item = QTableWidgetItem(label)
+            status_item.setBackground(QBrush(QColor(bg)))
+            status_item.setForeground(QBrush(QColor(fg)))
             status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             values = [
                 QTableWidgetItem(req.id),
@@ -130,7 +160,9 @@ class AdminRequestsDialog(QDialog):
             self.btn_complete.setEnabled(False)
             self.btn_cancel.setEnabled(False)
             self.btn_reopen.setEnabled(False)
-            self.details.clear()
+            self.details.setText(
+                f"<span style='color:{TEXT_DISABLED}'>Select a request to view its details.</span>"
+            )
             return
         self.btn_complete.setEnabled(req.status != STATUS_COMPLETED)
         self.btn_cancel.setEnabled(req.status != STATUS_CANCELLED)

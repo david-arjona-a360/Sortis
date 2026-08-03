@@ -1,7 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "default_role": "user",
   "users": {
-    "david.arjona": "admin"
+    "david.arjona": {
+      "role": "admin",
+      "display_name": "David Arjona"
+    }
   }
 }

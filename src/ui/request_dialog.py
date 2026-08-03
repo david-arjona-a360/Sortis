@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from src.models.request import Request
 from src.core.request_store import RequestStore
 from src.core.validator import find_duplicate
+from src.ui.dialog_theme import apply_dialog_theme, style_button
 
 
 class RequestDialog(QDialog):
@@ -18,6 +19,7 @@ class RequestDialog(QDialog):
 
         self.setWindowTitle(f"Request for Seat #{seat_data['seat_no']}")
         self.setMinimumWidth(420)
+        apply_dialog_theme(self)
         layout = QVBoxLayout(self)
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
@@ -58,6 +60,7 @@ class RequestDialog(QDialog):
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Submit")
+        style_button(buttons.button(QDialogButtonBox.StandardButton.Ok), "primary")
         buttons.accepted.connect(self._on_submit)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

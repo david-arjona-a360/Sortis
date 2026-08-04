@@ -119,6 +119,15 @@ class AuthManager:
         return cls.role(username) == "admin"
 
     @classmethod
+    def can_admin(cls, username=None):
+        """Admin capabilities: 'admin' and 'superadmin' roles.
+
+        Forward-compatible: 'superadmin' is prepared in the theme's ROLE_STYLES
+        and becomes operative as soon as a user is assigned that role.
+        """
+        return cls.role(username) in ("admin", "superadmin")
+
+    @classmethod
     def get_user_info(cls, username=None):
         entry = cls._entry(username) or {}
         username = (username or cls.current_user()).lower().strip()

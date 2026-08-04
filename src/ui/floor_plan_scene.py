@@ -6,7 +6,8 @@ from PySide6.QtGui import QColor, QBrush, QPen, QFont
 from PySide6.QtWidgets import QGraphicsScene
 
 from src.core.path_config import get_positions_path
-from src.theme.theme import CELL_W, CELL_H, CELL_GAP, COLORS
+from src.core.color_manager import DeptColorManager
+from src.theme.theme import CELL_W, CELL_H, CELL_GAP, COLORS, SEAT_COLOR_FREE
 from src.ui.room_item import RoomItem
 from src.ui.seat_item import SeatItem
 
@@ -86,3 +87,19 @@ class FloorPlanScene(QGraphicsScene):
                 seat_dept == department
             )
             item.set_dimmed(not (matches_occupancy and matches_dept))
+
+    def recolor_departments(self):
+        """Recompute every seat color from the current department color config.
+
+        In-place update: no scene rebuild, selection and filters preserved.
+        ERROR seats keep their red diagnostic color.
+        """
+        for item in self.seat_items:
+            seat_data = item.seat_data
+            if seat_data.get("status") == "ERROR":
+                item.color = "#ff0000"
+            else:
+                person = seat_data.get("person")
+                dept = person["department"] if person else None
+                item.color = DeptColorManager.get_color(dept, fallback=SEAT_COLOR_FREE)
+            item.update()

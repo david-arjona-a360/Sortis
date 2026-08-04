@@ -41,8 +41,20 @@ function Get-CodeSigningCert {
     return $c
 }
 
+function Test-SelfSigned {
+    param([System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    return ($Cert.Subject -eq $Cert.Issuer)
+}
+
 function Sign-File {
     param([string]$Path, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    if (Test-SelfSigned -Cert $Cert) {
+        Write-Host "  -> SKIPPED signing: certificate '$($Cert.Subject)' is SELF-SIGNED." -ForegroundColor Red
+        Write-Host "     Self-signed signatures provide NO AV reputation and can make ML detectors" -ForegroundColor Red
+        Write-Host "     MORE suspicious (signature-spoof trait). Use -SkipSign or a publicly" -ForegroundColor Red
+        Write-Host "     trusted code-signing cert (Azure Trusted Signing)." -ForegroundColor Red
+        return
+    }
     $sig = $null
     foreach ($ts in @('http://timestamp.digicert.com', 'http://timestamp.comodoca.com', $null)) {
         try {

@@ -43,7 +43,10 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; Launch disabled by default: auto-starting the freshly-installed EXE lets
+; real-time AV scan the process at its most fragile moment and can produce
+; "CreateProcess failed; code 225" on clean-but-unreputed builds. Users launch
+; SORTIS.exe from the Start menu / shortcut instead.
 
 [Code]
 function InitializeSetup: Boolean;

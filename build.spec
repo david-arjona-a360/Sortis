@@ -40,7 +40,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='assets/SORTIS.ico',
+    version='SORTIS_version_info.txt',
 )
 coll = COLLECT(
     exe,

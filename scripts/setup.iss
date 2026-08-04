@@ -15,6 +15,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
+SetupIconFile=..\assets\SORTIS.ico
 DisableProgramGroupPage=yes
 OutputDir=..\release
 OutputBaseFilename={#MyAppName}_Setup_v{#MyAppVersion}

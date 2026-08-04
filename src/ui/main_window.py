@@ -12,9 +12,11 @@ from src.ui.filter_bar import FilterBar
 from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
 from src.ui.admin_requests_dialog import AdminRequestsDialog
+from src.ui.department_colors_dialog import DepartmentColorsDialog
 from src.ui.user_badge import UserBadge
 from src.core.request_store import RequestStore
 from src.core.auth_manager import AuthManager
+from src.core.color_manager import DeptColorManager
 from src.core.health_check import run_health_check
 from src.core.path_config import get_requests_path, get_logs_path
 from src.core.log_manager import LogManager
@@ -82,11 +84,14 @@ class MainWindow(QMainWindow):
         zoom_reset.triggered.connect(self._zoom_reset)
         view_menu.addAction(zoom_reset)
 
-        if AuthManager.is_admin():
+        if AuthManager.can_admin():
             admin_menu = menubar.addMenu("Admin")
             manage_requests = QAction("Manage Requests...", self)
             manage_requests.triggered.connect(self._open_admin_requests)
             admin_menu.addAction(manage_requests)
+            dept_colors = QAction("Department Colors...", self)
+            dept_colors.triggered.connect(self._open_dept_colors)
+            admin_menu.addAction(dept_colors)
 
         help_menu = menubar.addMenu("Help")
         about_action = QAction("About", self)
@@ -200,6 +205,23 @@ class MainWindow(QMainWindow):
     def _open_admin_requests(self):
         dlg = AdminRequestsDialog(self.store, self)
         dlg.exec()
+
+    def _open_dept_colors(self):
+        departments = set()
+        data = getattr(self.scene, "data", {})
+        for dept in data.get("departments", []):
+            departments.add(dept)
+        for item in self.scene.seat_items:
+            person = item.seat_data.get("person")
+            if person and person.get("department"):
+                departments.add(person["department"])
+        departments.update(DeptColorManager.get_all_colors().keys())
+
+        dlg = DepartmentColorsDialog(sorted(departments), self)
+        if dlg.exec() and dlg.saved:
+            DeptColorManager.load()
+            self.scene.recolor_departments()
+            self.status_bar.showMessage("Department colors updated", 5000)
 
     def _export_pdf(self):
         reqs = self.store.list_all()

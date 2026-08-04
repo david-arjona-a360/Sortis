@@ -15,6 +15,8 @@ import os
 import re
 import sys
 
+from src.core.file_utils import atomic_write_json
+from src.core.path_config import get_shared_dept_colors_path
 from src.theme.theme import SEAT_COLOR_FREE
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -45,6 +47,17 @@ def _app_base_dir():
 
 
 def get_dept_colors_path():
+    """Resolve the dept colors config file.
+
+    Priority:
+        1. Shared OneDrive config (FLOOR PLAN/dept_colors.json) - source of truth.
+           Admin writes here so every installation reads the same colors.
+        2. Local config next to the executable - fallback when the shared
+           folder is not mounted (offline) or not yet created.
+    """
+    shared = get_shared_dept_colors_path()
+    if shared and os.path.exists(shared):
+        return shared
     return os.path.join(_app_base_dir(), "config", "dept_colors.json")
 
 
@@ -116,3 +129,52 @@ class DeptColorManager:
         if cls._colors is None:
             cls.load()
         return cls._source
+
+    @classmethod
+    def _build_config(cls, departments=None, default_color=None):
+        depts = departments if departments is not None else cls._colors
+        default = default_color if default_color is not None else cls._default
+        return {
+            "version": 1,
+            "default_color": str(default).upper(),
+            "departments": {
+                str(name).strip(): str(color).upper()
+                for name, color in (depts or {}).items()
+            },
+        }
+
+    @classmethod
+    def save(cls, departments=None, default_color=None, path=None):
+        """Persist colors atomically to the config file, then reload.
+
+        Writes to the shared OneDrive config by default (single source of
+        truth). Falls back to the local config only when the shared path
+        cannot be resolved/created (e.g. OneDrive not mounted).
+        """
+        data = cls._build_config(departments, default_color)
+        cfg_path = path or get_dept_colors_path()
+        directory = os.path.dirname(cfg_path)
+        os.makedirs(directory, exist_ok=True)
+        atomic_write_json(directory, os.path.basename(cfg_path), data)
+        return cls.load(cfg_path)
+
+    @classmethod
+    def update_department(cls, department, color, path=None):
+        """Set or add a department color, persisting immediately."""
+        if cls._colors is None:
+            cls.load()
+        depts = dict(cls._colors)
+        depts[str(department).strip()] = str(color).upper()
+        return cls.save(depts, path=path)
+
+    @classmethod
+    def set_default(cls, color, path=None):
+        """Set the default color for unlisted departments, persisting."""
+        if cls._colors is None:
+            cls.load()
+        return cls.save(cls._colors, str(color).upper(), path=path)
+
+    @classmethod
+    def restore_defaults(cls, path=None):
+        """Restore the built-in fallback palette, persisting."""
+        return cls.save(_FALLBACK_DEPT_COLORS, _FALLBACK_DEFAULT_COLOR, path=path)

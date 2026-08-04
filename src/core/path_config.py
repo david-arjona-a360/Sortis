@@ -53,6 +53,13 @@ def get_positions_path():
     return None
 
 
+def get_shared_dept_colors_path():
+    base = get_floor_plan_path()
+    if base:
+        return os.path.join(base, "dept_colors.json")
+    return None
+
+
 def get_requests_path():
     base = get_floor_plan_path()
     if base:

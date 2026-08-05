@@ -1,24 +1,28 @@
-; SORTIS Inno Setup Installer
+; Interactive Office Map Inno Setup Installer
 ; Requires Inno Setup 6+
 
-#define MyAppName "SORTIS"
-#define MyAppVersion "2.0.1"
+#define MyAppName "Interactive Office Map"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "a360inc"
 #define MyAppURL "https://a360inc.sharepoint.com"
 #define MyAppExeName "SORTIS.exe"
 
 [Setup]
+; AppId intentionally UNCHANGED from the SORTIS v2.0.x installer so existing
+; installations upgrade in place.
 AppId={{B8F3A2D1-5E4C-4A7B-9D6F-1C2E3A4B5C6D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-DefaultDirName={localappdata}\{#MyAppName}
+; Install folder stays {localappdata}\SORTIS: it is the execution path that
+; a360inc IT allows on the corporate network.
+DefaultDirName={localappdata}\SORTIS
 DefaultGroupName={#MyAppName}
 SetupIconFile=..\assets\SORTIS.ico
 DisableProgramGroupPage=yes
 OutputDir=..\release
-OutputBaseFilename={#MyAppName}_Setup_v{#MyAppVersion}
+OutputBaseFilename=Interactive_Office_Map_Setup_v{#MyAppVersion}
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
@@ -43,10 +47,7 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-; Launch disabled by default: auto-starting the freshly-installed EXE lets
-; real-time AV scan the process at its most fragile moment and can produce
-; "CreateProcess failed; code 225" on clean-but-unreputed builds. Users launch
-; SORTIS.exe from the Start menu / shortcut instead.
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 function InitializeSetup: Boolean;

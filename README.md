@@ -1,4 +1,4 @@
-# SORTIS — Floor Plan Desktop
+# Interactive Office Map — Floor Plan Desktop
 
 Aplicación de escritorio para el mapa de asientos (floor plan) y la gestión de
 solicitudes de cambio de personal de a360inc. Incluye identificación
@@ -7,13 +7,13 @@ sincronización de datos a través de OneDrive.
 
 ## Descargas
 
-**SORTIS v2.0.1** — descarga `SORTIS_v2.0.1.zip` desde la sección **Releases**
-de este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
+**Interactive Office Map v2.1.0** — descarga el instalador
+`Interactive_Office_Map_Setup_v2.1.0.exe` desde la sección **Releases** de
+este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
-> El instalador `.exe` (Inno Setup) está en pausa temporalmente: Microsoft
-> Defender lo marca como falso positivo mientras no se firme con un
-> certificado confiable o IT despliegue una regla de permiso. Se distribuye
-> el ZIP hasta resolverlo.
+> Si Microsoft Defender marca el instalador o el ejecutable, es un falso
+> positivo (heurística ML sobre ejecutables PyInstaller sin firma). El
+> administrador/IT gestiona la excepción de Defender correspondiente.
 
 ## Requisitos por equipo
 
@@ -27,19 +27,17 @@ de este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
 ## Instalación
 
-1. Descarga `SORTIS_v2.0.1.zip` desde **Releases**.
-2. Extrae el contenido en la carpeta `%LOCALAPPDATA%\SORTIS`
-   (usa *Win+R* y pega `%LOCALAPPDATA%`; si no existe la subcarpeta
-   `SORTIS`, créala). Es importante usar **esa** ruta: es donde la app tiene
-   permiso de ejecución permitido en la red de a360inc.
-3. Ejecuta `SORTIS.exe` desde esa carpeta.
-4. Opcional: crea un acceso directo a `SORTIS.exe` en el escritorio o menú
-   Inicio.
-5. La app se instala sin Python, .NET ni permisos de administrador.
+1. Descarga `Interactive_Office_Map_Setup_v2.1.0.exe` desde **Releases**.
+2. Ejecuta el instalador (no requiere permisos de administrador). Instala en
+   `%LOCALAPPDATA%\SORTIS`, la ruta con permiso de ejecución permitido en la
+   red de a360inc.
+3. La app se abre al terminar la instalación. También quedan accesos en el
+   menú Inicio y (opcional) en el escritorio.
+4. La app se instala sin Python, .NET ni permisos de administrador.
 
-> Antes de actualizar una instalación existente, cierra la app y borra el
-> contenido anterior de `%LOCALAPPDATA%\SORTIS` (o sobrescríbelo). La carpeta
-> `config\` local se regenera; los datos del mapa viven en OneDrive.
+> Para actualizar una instalación existente, ejecuta el nuevo instalador sobre
+> la misma versión (mismo AppId de Inno Setup): se actualiza en su sitio. La
+> carpeta `config\` local se regenera; los datos del mapa viven en OneDrive.
 
 ## Configuración de OneDrive (importante)
 
@@ -72,28 +70,29 @@ que la carpeta esté disponible en el equipo:
 ## Microsoft Defender / antivirus (importante)
 
 Microsoft Defender a veces marca la app compilada como
-`Trojan:Win32/Wacatac.B!ml` o `Wacatac.C!ml`. Es un **falso positivo**: el
-sufijo `!ml` indica detección heurística de *machine learning*, no un virus
-real. Ocurre porque los ejecutables empaquetados con PyInstaller (sin firma
-digital) son usados también por malware, y la heurística los agrupa.
+`Trojan:Win32/Wacatac.B!ml`, `Wacatac.C!ml` o `Wacatac.F!ml`. Es un **falso
+positivo**: el sufijo `!ml` indica detección heurística de *machine learning*,
+no un virus real. Ocurre porque los ejecutables empaquetados con PyInstaller
+(sin firma digital) son usados también por malware, y la heurística los
+agrupa.
 
-La versión 2.0.1 ya mitiga esto:
-
-- Se añadieron **metadatos de versión** e **icono** al ejecutable.
-- El ejecutable se firma digitalmente con el certificado interno de A360
-  (`CN=Inventory Manager Dev`) al compilar.
-- Se distribuye como **ZIP** (un archivo `.zip` no dispara la heurística).
+El build actual ya reduce mucho este riesgo: el bundle es mínimo (~48
+archivos / 55 MB, solo Qt Core/Gui/Widgets/PrintSupport y openpyxl), sin
+DLLs de terceros ni paquetes innecesarios, y con metadatos de versión/icono.
 
 Qué hacer si aparece la alerta:
 
-- Si ocurre al extraer/ejecutar, confirma que la app esté en
-  `%LOCALAPPDATA%\SORTIS` (ruta permitida en la red).
-- En **Windows Security → Protection history**, si la marca, usa
-  **Restore** (la app es la propia herramienta interna).
-- Para instalaciones corporativas, contacta a IT para que despliegue una
-  **regla de permiso / exclusión** de Defender para la app, o un certificado
-  de firma de código confiable (Azure Trusted Signing) con el que firmar el
-  instalador y poder volver al formato `.exe`.
+- Confirma que la app esté instalada en `%LOCALAPPDATA%\SORTIS` (ruta
+  permitida en la red).
+- En **Windows Security → Protection history**, si la marca, usa **Restore**
+  (la app es la propia herramienta interna).
+- Para instalaciones corporativas, el **administrador/IT** despliega una
+  **regla de permiso / exclusión** de Defender para la app o el instalador.
+  Esa gestión se hace manualmente por IT, no en el repo.
+
+La mitigación definitiva (opcional, fuera de este alcance) es firmar el
+instalador con un certificado de firma de código confiable (Azure Trusted
+Signing).
 
 ## Solución de problemas
 

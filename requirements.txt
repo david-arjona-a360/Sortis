@@ -1,0 +1,7 @@
+# SORTIS runtime dependencies (production)
+# The app imports ONLY these third-party packages.
+# Everything else (numpy, PIL, requests, pywin32, ...) is NOT used by the app
+# and must NOT be installed in the build environment, otherwise PyInstaller
+# hooks will drag them into the bundle (which is what triggered Defender).
+PySide6==6.11.1
+openpyxl==3.1.5

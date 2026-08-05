@@ -1,25 +1,26 @@
 <#
 .SYNOPSIS
-    Build pipeline: PyInstaller (onedir) -> signed EXE -> ZIP distribution.
-    Optionally builds an Inno Setup installer (see -Inno).
-    No staging folder: packages directly from dist\SORTIS + config.
+    Build pipeline: PyInstaller (onedir) -> Inno Setup installer.
+    Optional -Zip packages the app folder as a ZIP for manual distribution.
+    No staging folder: setup.iss packages directly from dist\SORTIS + config.
 .PARAMETER SkipBuild
     Skip PyInstaller build, use existing dist\SORTIS\.
 .PARAMETER SkipSign
     Do not sign the EXE/installer (unsigned output).
-.PARAMETER Inno
-    Also build the Inno Setup installer. NOTE: currently flagged by
-    Microsoft Defender ML (Wacatac.F!ml) on this network; use ZIP instead
-    until IT deploys an allow rule or a trusted code-signing cert.
+.PARAMETER Zip
+    Also package the app folder as a ZIP (manual distribution fallback).
 .PARAMETER SigningThumbprint
     Thumbprint of the code-signing certificate to use. Default: first
     code-signing cert with private key in CurrentUser\My / LocalMachine\My.
+    Self-signed certificates are refused: they add no AV reputation and can
+    look like a signature-spoof trait. Defender exceptions are handled by the
+    administrator (see README).
 #>
 
 param(
     [switch]$SkipBuild,
     [switch]$SkipSign,
-    [switch]$Inno,
+    [switch]$Zip,
     [string]$SigningThumbprint
 )
 
@@ -41,8 +42,20 @@ function Get-CodeSigningCert {
     return $c
 }
 
+function Test-SelfSigned {
+    param([System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    return ($Cert.Subject -eq $Cert.Issuer)
+}
+
 function Sign-File {
     param([string]$Path, [System.Security.Cryptography.X509Certificates.X509Certificate2]$Cert)
+    if (Test-SelfSigned -Cert $Cert) {
+        Write-Host "  -> SKIPPED signing: certificate '$($Cert.Subject)' is SELF-SIGNED." -ForegroundColor Red
+        Write-Host "     Self-signed signatures provide NO AV reputation and can make ML detectors" -ForegroundColor Red
+        Write-Host "     MORE suspicious (signature-spoof trait). Use -SkipSign or a publicly" -ForegroundColor Red
+        Write-Host "     trusted code-signing cert (Azure Trusted Signing)." -ForegroundColor Red
+        return
+    }
     $sig = $null
     foreach ($ts in @('http://timestamp.digicert.com', 'http://timestamp.comodoca.com', $null)) {
         try {
@@ -93,19 +106,33 @@ $ReleaseDir     = Join-Path $ProjectRoot "release"
 $ConfigDir      = Join-Path $ProjectRoot "config"
 $SetupIss       = Join-Path $PSScriptRoot "setup.iss"
 
-$AppName        = "SORTIS"
-$AppVersion     = "2.0.1"
+$AppName        = "SORTIS"                        # internal/exe name, install folder
+$AppDisplayName = "Interactive Office Map"        # installer / branding name
+$AppVersion     = "2.1.0"
 $ExeName        = "SORTIS.exe"
-$ZipName        = "${AppName}_v${AppVersion}.zip"
-$InstallerName  = "${AppName}_Setup_v${AppVersion}.exe"
+$InstallerName  = "Interactive_Office_Map_Setup_v${AppVersion}.exe"
+$ZipName        = "Interactive_Office_Map_v${AppVersion}.zip"
 
 # ── Pre-flight ───────────────────────────────────────────────────────────
-Write-Host "=== SORTIS Build Pipeline ===" -ForegroundColor Cyan
+Write-Host "=== Interactive Office Map Build Pipeline ===" -ForegroundColor Cyan
 Write-Host "Project root : $ProjectRoot"
 Write-Host ""
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     throw "Python is not on PATH."
+}
+
+# ── Phase 0: Build interpreter ────────────────────────────────────────────
+# Always build from the isolated venv (requirements-build.txt). Never use a
+# shared/global Python: PyInstaller resolves DLLs via PATH and module search
+# paths, so a contaminated interpreter re-bundles numpy/pywin32/HP OpenSSL.
+$VenvPy = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+if (Test-Path $VenvPy) {
+    $BuildPython = $VenvPy
+} else {
+    Write-Host "  -> .venv not found at $VenvPy; falling back to python on PATH." -ForegroundColor Yellow
+    Write-Host "     Create the venv first: python -m venv .venv ; .\.venv\Scripts\python -m pip install -r requirements-build.txt" -ForegroundColor Yellow
+    $BuildPython = "python"
 }
 
 # ── Phase 1: PyInstaller ─────────────────────────────────────────────────
@@ -116,8 +143,8 @@ if (-not $SkipBuild) {
     $distSub = Join-Path $DistDir "SORTIS"
     if (Test-Path $distSub) { Remove-Item -Recurse -Force $distSub }
 
-    Write-Host "  -> Running PyInstaller via $SpecFile ..."
-    $proc = Start-Process -FilePath "python" -ArgumentList @("-m", "PyInstaller", $SpecFile, "--clean") -NoNewWindow -Wait -PassThru
+    Write-Host "  -> Running PyInstaller via $SpecFile ($BuildPython)..."
+    $proc = Start-Process -FilePath $BuildPython -ArgumentList @("-m", "PyInstaller", $SpecFile, "--clean") -NoNewWindow -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
         throw "PyInstaller failed with exit code $($proc.ExitCode)."
     }
@@ -139,61 +166,62 @@ if (-not $SkipBuild) {
     Write-Host "=== Phase 1: SKIPPED (--SkipBuild) ===" -ForegroundColor Gray
 }
 
-# ── Phase 2: Package (ZIP) ───────────────────────────────────────────────
-Write-Host "=== Phase 2: Package (ZIP) ===" -ForegroundColor Green
+# ── Phase 2: Package (Inno Setup installer) ──────────────────────────────
+Write-Host "=== Phase 2: Package (Inno Setup) ===" -ForegroundColor Green
 
-$prevZip = Join-Path $ReleaseDir $ZipName
-if (Test-Path $prevZip) { Remove-Item -Force $prevZip }
-
-$distSub = Join-Path $DistDir "SORTIS"
-$exePath = Join-Path $distSub $ExeName
-if (-not (Test-Path $exePath)) {
-    throw "Build output not found at $exePath. Run without -SkipBuild first."
+$isccPaths = @(
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+    "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
+    "${env:ProgramFiles}\Inno Setup 5\ISCC.exe"
+    "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe"
+)
+$iscc = $null
+foreach ($p in $isccPaths) {
+    if (Test-Path $p) { $iscc = $p; break }
+}
+if (-not $iscc) {
+    throw "Inno Setup compiler (ISCC.exe) not found. Install from https://jrsoftware.org/isdl.php"
 }
 
-New-ZipPackage -DistSub $distSub -ConfigDir $ConfigDir -OutputZip $prevZip
+$prevInstaller = Join-Path $ReleaseDir $InstallerName
+if (Test-Path $prevInstaller) { Remove-Item -Force $prevInstaller }
 
-# ── Phase 3: Package (Inno Setup installer, optional) ────────────────────
-if ($Inno) {
-    Write-Host "=== Phase 3: Package (Inno Setup) ===" -ForegroundColor Green
+Write-Host "  -> Compiling installer via Inno Setup..."
+& $iscc $SetupIss /Q
+if ($LASTEXITCODE -ne 0) {
+    throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
+}
 
-    $isccPaths = @(
-        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-        "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
-        "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
-        "${env:ProgramFiles}\Inno Setup 5\ISCC.exe"
-        "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe"
-    )
-    $iscc = $null
-    foreach ($p in $isccPaths) {
-        if (Test-Path $p) { $iscc = $p; break }
+if (-not (Test-Path $prevInstaller)) {
+    throw "Installer not found at $prevInstaller"
+}
+Write-Host "  -> Installer created: $prevInstaller" -ForegroundColor Yellow
+
+if (-not $SkipSign) {
+    Write-Host "  -> Signing installer..."
+    $cert = Get-CodeSigningCert $SigningThumbprint
+    Sign-File -Path $prevInstaller -Cert $cert
+}
+Write-Host ""
+
+# ── Phase 3: Package (ZIP, optional) ─────────────────────────────────────
+if ($Zip) {
+    Write-Host "=== Phase 3: Package (ZIP) ===" -ForegroundColor Green
+
+    $distSub = Join-Path $DistDir "SORTIS"
+    $exePath = Join-Path $distSub $ExeName
+    if (-not (Test-Path $exePath)) {
+        throw "Build output not found at $exePath. Run without -SkipBuild first."
     }
-    if (-not $iscc) {
-        throw "Inno Setup compiler (ISCC.exe) not found. Install from https://jrsoftware.org/isdl.php"
-    }
 
-    $prevInstaller = Join-Path $ReleaseDir $InstallerName
-    if (Test-Path $prevInstaller) { Remove-Item -Force $prevInstaller }
+    $prevZip = Join-Path $ReleaseDir $ZipName
+    if (Test-Path $prevZip) { Remove-Item -Force $prevZip }
 
-    Write-Host "  -> Compiling installer via Inno Setup..."
-    & $iscc $SetupIss /Q
-    if ($LASTEXITCODE -ne 0) {
-        throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
-    }
-
-    if (-not (Test-Path $prevInstaller)) {
-        throw "Installer not found at $prevInstaller"
-    }
-    Write-Host "  -> Installer created: $prevInstaller" -ForegroundColor Yellow
-
-    if (-not $SkipSign) {
-        Write-Host "  -> Signing installer..."
-        $cert = Get-CodeSigningCert $SigningThumbprint
-        Sign-File -Path $prevInstaller -Cert $cert
-    }
+    New-ZipPackage -DistSub $distSub -ConfigDir $ConfigDir -OutputZip $prevZip
 }
 
 Write-Host ""
 Write-Host "=== Build pipeline complete ===" -ForegroundColor Cyan
-Write-Host "  ZIP       : $ReleaseDir\$ZipName"
-if ($Inno) { Write-Host "  Installer : $ReleaseDir\$InstallerName" }
+Write-Host "  Installer : $ReleaseDir\$InstallerName"
+if ($Zip) { Write-Host "  ZIP       : $ReleaseDir\$ZipName" }

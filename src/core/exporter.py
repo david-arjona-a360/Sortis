@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtGui import QTextDocument, QFont
 from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -11,7 +13,7 @@ def export_to_pdf(requests, parent_widget):
         return
     html = "<html><head><meta charset='utf-8'></head><body>"
     html += "<h1>Request Report</h1>"
-    html += f"<p>Generated: {__import__('datetime').datetime.now():%Y-%m-%d %H:%M}</p>"
+    html += f"<p>Generated: {datetime.now():%Y-%m-%d %H:%M}</p>"
     html += "<hr>"
     for req in requests:
         html += f"<h3>{req.id}</h3>"
@@ -34,7 +36,6 @@ def export_to_pdf(requests, parent_widget):
 
 def export_to_xlsx(requests, parent_widget):
     import openpyxl
-    from datetime import datetime
     path, _ = QFileDialog.getSaveFileName(parent_widget, "Export to Excel", "requests.xlsx", "Excel (*.xlsx)")
     if not path:
         return

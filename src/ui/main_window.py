@@ -27,7 +27,7 @@ from src.theme.theme import COLORS
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SORTIS - Floor Plan v2")
+        self.setWindowTitle("Interactive Office Map - Floor Plan v2")
         self.resize(1200, 800)
 
         self.log_manager = None
@@ -259,8 +259,8 @@ class MainWindow(QMainWindow):
         self._zoom_label.setText("100%")
 
     def _show_about(self):
-        QMessageBox.about(self, "About SORTIS",
-                          "SORTIS v2.0.0\n"
+        QMessageBox.about(self, "About Interactive Office Map",
+                          "Interactive Office Map v2.1.0\n"
                           "Seating Organization & Request Tracking\n"
                           "Desktop Edition\n\n"
                           "Built with PySide6")

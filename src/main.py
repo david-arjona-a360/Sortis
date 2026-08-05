@@ -13,7 +13,7 @@ def main():
     DeptColorManager.load()
     AuthManager.load()
     app = QApplication(sys.argv)
-    app.setApplicationName("SORTIS")
+    app.setApplicationName("Interactive Office Map")
     app.setOrganizationName("a360inc")
     window = MainWindow()
     window.show()

@@ -120,6 +120,19 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     throw "Python is not on PATH."
 }
 
+# ── Phase 0: Build interpreter ────────────────────────────────────────────
+# Always build from the isolated venv (requirements-build.txt). Never use a
+# shared/global Python: PyInstaller resolves DLLs via PATH and module search
+# paths, so a contaminated interpreter re-bundles numpy/pywin32/HP OpenSSL.
+$VenvPy = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+if (Test-Path $VenvPy) {
+    $BuildPython = $VenvPy
+} else {
+    Write-Host "  -> .venv not found at $VenvPy; falling back to python on PATH." -ForegroundColor Yellow
+    Write-Host "     Create the venv first: python -m venv .venv ; .\.venv\Scripts\python -m pip install -r requirements-build.txt" -ForegroundColor Yellow
+    $BuildPython = "python"
+}
+
 # ── Phase 1: PyInstaller ─────────────────────────────────────────────────
 if (-not $SkipBuild) {
     Write-Host "=== Phase 1: Build EXE ===" -ForegroundColor Green
@@ -128,8 +141,8 @@ if (-not $SkipBuild) {
     $distSub = Join-Path $DistDir "SORTIS"
     if (Test-Path $distSub) { Remove-Item -Recurse -Force $distSub }
 
-    Write-Host "  -> Running PyInstaller via $SpecFile ..."
-    $proc = Start-Process -FilePath "python" -ArgumentList @("-m", "PyInstaller", $SpecFile, "--clean") -NoNewWindow -Wait -PassThru
+    Write-Host "  -> Running PyInstaller via $SpecFile ($BuildPython)..."
+    $proc = Start-Process -FilePath $BuildPython -ArgumentList @("-m", "PyInstaller", $SpecFile, "--clean") -NoNewWindow -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
         throw "PyInstaller failed with exit code $($proc.ExitCode)."
     }

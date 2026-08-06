@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from PySide6.QtWidgets import QApplication, QMessageBox
 from src.core.color_manager import DeptColorManager
 from src.core.auth_manager import AuthManager
+from src.core.onboarding import run as run_onboarding
 from src.core.startup_check import validate_environment
 from src.ui.main_window import MainWindow
 
@@ -30,6 +31,8 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Interactive Office Map")
     app.setOrganizationName("a360inc")
+
+    run_onboarding()
 
     validation = validate_environment()
     if validation.is_blocked:

@@ -49,6 +49,11 @@ Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
+[UninstallRun]
+; Remove the first-run marker so the user sees the setup requirements
+; guidance again after a reinstall.
+Filename: "{cmd}"; Parameters: "/c if exist ""{localappdata}\SORTIS\config.json"" del ""{localappdata}\SORTIS\config.json"""; Flags: runhidden
+
 [Code]
 function InitializeSetup: Boolean;
 begin

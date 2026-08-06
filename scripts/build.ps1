@@ -8,7 +8,9 @@
 .PARAMETER SkipSign
     Do not sign the EXE/installer (unsigned output).
 .PARAMETER Zip
-    Also package the app folder as a ZIP (manual distribution fallback).
+    Also package the installer (Setup.exe) as a ZIP (manual distribution
+    fallback). The ZIP wraps the installer only, matching the inventory
+    package convention.
 .PARAMETER SigningThumbprint
     Thumbprint of the code-signing certificate to use. Default: first
     code-signing cert with private key in CurrentUser\My / LocalMachine\My.
@@ -81,15 +83,16 @@ function Sign-File {
     Write-Host "     Signature embedded: $($sig.SignerCertificate.Subject)" -ForegroundColor DarkYellow
 }
 
-function New-ZipPackage {
-    param([string]$DistSub, [string]$ConfigDir, [string]$OutputZip)
+function New-InstallerZip {
+    param([string]$InstallerPath, [string]$OutputZip, [string]$ReadMePath)
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("SORTIS_pkg_" + [System.Guid]::NewGuid().ToString("N"))
+    $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("SORTIS_installer_zip_" + [System.Guid]::NewGuid().ToString("N"))
     try {
         New-Item -ItemType Directory -Path $stage | Out-Null
-        Copy-Item -Recurse "$DistSub\*" $stage
-        New-Item -ItemType Directory -Path (Join-Path $stage "config") | Out-Null
-        Copy-Item -Recurse "$ConfigDir\*" (Join-Path $stage "config")
+        Copy-Item -LiteralPath $InstallerPath -Destination $stage
+        if ($ReadMePath -and (Test-Path $ReadMePath)) {
+            Copy-Item -LiteralPath $ReadMePath -Destination $stage
+        }
         [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $OutputZip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
     } finally {
         if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
@@ -103,15 +106,15 @@ $DistDir        = Join-Path $ProjectRoot "dist"
 $BuildDir       = Join-Path $ProjectRoot "build"
 $SpecFile       = Join-Path $ProjectRoot "build.spec"
 $ReleaseDir     = Join-Path $ProjectRoot "release"
-$ConfigDir      = Join-Path $ProjectRoot "config"
 $SetupIss       = Join-Path $PSScriptRoot "setup.iss"
+$ReadMePath     = Join-Path $PSScriptRoot "read_me_first.txt"
 
 $AppName        = "SORTIS"                        # internal/exe name, install folder
 $AppDisplayName = "Interactive Office Map"        # installer / branding name
-$AppVersion     = "2.1.0"
+$AppVersion     = "2.2.0"
 $ExeName        = "SORTIS.exe"
 $InstallerName  = "Interactive_Office_Map_Setup_v${AppVersion}.exe"
-$ZipName        = "Interactive_Office_Map_v${AppVersion}.zip"
+$ZipName        = "Interactive_Office_Map_Setup_v${AppVersion}.zip"
 
 # ── Pre-flight ───────────────────────────────────────────────────────────
 Write-Host "=== Interactive Office Map Build Pipeline ===" -ForegroundColor Cyan
@@ -209,16 +212,15 @@ Write-Host ""
 if ($Zip) {
     Write-Host "=== Phase 3: Package (ZIP) ===" -ForegroundColor Green
 
-    $distSub = Join-Path $DistDir "SORTIS"
-    $exePath = Join-Path $distSub $ExeName
-    if (-not (Test-Path $exePath)) {
-        throw "Build output not found at $exePath. Run without -SkipBuild first."
+    $installerPath = Join-Path $ReleaseDir $InstallerName
+    if (-not (Test-Path $installerPath)) {
+        throw "Installer not found at $installerPath. Run without -SkipBuild first."
     }
 
     $prevZip = Join-Path $ReleaseDir $ZipName
     if (Test-Path $prevZip) { Remove-Item -Force $prevZip }
 
-    New-ZipPackage -DistSub $distSub -ConfigDir $ConfigDir -OutputZip $prevZip
+    New-InstallerZip -InstallerPath $installerPath -OutputZip $prevZip -ReadMePath $ReadMePath
 }
 
 Write-Host ""

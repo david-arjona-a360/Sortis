@@ -7,8 +7,8 @@ sincronización de datos a través de OneDrive.
 
 ## Descargas
 
-**Interactive Office Map v2.1.0** — descarga el instalador
-`Interactive_Office_Map_Setup_v2.1.0.exe` desde la sección **Releases** de
+**Interactive Office Map v2.2.0** — descarga el instalador
+`Interactive_Office_Map_Setup_v2.2.0.exe` desde la sección **Releases** de
 este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
 > Si Microsoft Defender marca el instalador o el ejecutable, es un falso
@@ -27,7 +27,7 @@ este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
 ## Instalación
 
-1. Descarga `Interactive_Office_Map_Setup_v2.1.0.exe` desde **Releases**.
+1. Descarga `Interactive_Office_Map_Setup_v2.2.0.exe` desde **Releases**.
 2. Ejecuta el instalador (no requiere permisos de administrador). Instala en
    `%LOCALAPPDATA%\SORTIS`, la ruta con permiso de ejecución permitido en la
    red de a360inc.
@@ -38,6 +38,30 @@ este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 > Para actualizar una instalación existente, ejecuta el nuevo instalador sobre
 > la misma versión (mismo AppId de Inno Setup): se actualiza en su sitio. La
 > carpeta `config\` local se regenera; los datos del mapa viven en OneDrive.
+
+## Primer arranque
+
+La primera vez que ejecutas la aplicación aparece un mensaje **Setup
+Requirements** (en inglés):
+
+```
+This application requires access to the following OneDrive/SharePoint folder:
+
+    - PTY Files - Documents\FLOOR PLAN
+
+Please ensure:
+    1. OneDrive is synchronized
+    2. This folder exists in your OneDrive
+    3. Files are available locally (not cloud-only)
+```
+
+- Lee el mensaje y pulsa **OK**.
+- La app comprueba tu OneDrive. Si todo está bien, se abre el mapa.
+- Si falta la carpeta requerida, aparece un diálogo **Configuration Error** y
+  la app se cierra. Arregla tu OneDrive y vuelve a abrirla.
+- Esta validación se ejecuta **en cada arranque**. El mensaje de requisitos
+  solo aparece la primera vez; para verlo de nuevo (p. ej. tras reinstalar),
+  borra el archivo `%LOCALAPPDATA%\SORTIS\config.json`.
 
 ## Configuración de OneDrive (importante)
 

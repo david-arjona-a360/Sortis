@@ -30,7 +30,7 @@ def run_health_check():
     result = HealthCheckResult()
 
     root = find_onedrive_root()
-    result.add("OneDrive root found", root is not None,
+    result.add("OneDrive root found", root is not None and os.path.isdir(root),
                "OneDrive folder not found. Ensure OneDrive is installed and syncing.")
 
     if root:

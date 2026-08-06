@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6+
 
 #define MyAppName "Interactive Office Map"
-#define MyAppVersion "2.1.0"
+#define MyAppVersion "2.2.0"
 #define MyAppPublisher "a360inc"
 #define MyAppURL "https://a360inc.sharepoint.com"
 #define MyAppExeName "SORTIS.exe"
@@ -48,6 +48,11 @@ Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: 
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+; Remove the first-run marker so the user sees the setup requirements
+; guidance again after a reinstall.
+Filename: "{cmd}"; Parameters: "/c if exist ""{localappdata}\SORTIS\config.json"" del ""{localappdata}\SORTIS\config.json"""; Flags: runhidden
 
 [Code]
 function InitializeSetup: Boolean;

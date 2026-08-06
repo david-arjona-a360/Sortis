@@ -33,23 +33,36 @@ class FloorPlanScene(QGraphicsScene):
             text = self.addText("positions.json not found", QFont("Segoe UI", 14))
             text.setPos(20, 20)
             return
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            text = self.addText(f"positions.json invalid: {e}", QFont("Segoe UI", 14))
+            text.setPos(20, 20)
+            return
+
+        try:
+            grid = data["grid"]
+            rooms = data.get("rooms", [])
+            seats = data.get("seats", [])
+            rows = grid["rows"]
+            cols = grid["cols"]
+        except (KeyError, TypeError) as e:
+            text = self.addText(f"positions.json invalid: missing key {e}", QFont("Segoe UI", 14))
+            text.setPos(20, 20)
+            return
+
         self.data = data
 
-        rooms = data.get("rooms", [])
         for r in rooms:
             item = RoomItem(r)
             self.addItem(item)
 
-        seats = data.get("seats", [])
         for s in seats:
             item = SeatItem(s)
             self.addItem(item)
             self.seat_items.append(item)
 
-        rows = data["grid"]["rows"]
-        cols = data["grid"]["cols"]
         w = (CELL_W + CELL_GAP) * cols
         h = (CELL_H + CELL_GAP) * rows
         self.setSceneRect(QRectF(0, 0, w + 20, h + 20))

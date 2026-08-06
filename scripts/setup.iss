@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6+
 
 #define MyAppName "Interactive Office Map"
-#define MyAppVersion "2.1.0"
+#define MyAppVersion "2.2.0"
 #define MyAppPublisher "a360inc"
 #define MyAppURL "https://a360inc.sharepoint.com"
 #define MyAppExeName "SORTIS.exe"

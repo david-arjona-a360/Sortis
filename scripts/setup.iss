@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6+
 
 #define MyAppName "Interactive Office Map"
-#define MyAppVersion "2.2.0"
+#define MyAppVersion "2.2.1"
 #define MyAppPublisher "a360inc"
 #define MyAppURL "https://a360inc.sharepoint.com"
 #define MyAppExeName "SORTIS.exe"
@@ -19,7 +19,7 @@ AppPublisherURL={#MyAppURL}
 ; a360inc IT allows on the corporate network.
 DefaultDirName={localappdata}\SORTIS
 DefaultGroupName={#MyAppName}
-SetupIconFile=..\assets\SORTIS.ico
+SetupIconFile=..\assets\blueprint.ico
 DisableProgramGroupPage=yes
 OutputDir=..\release
 OutputBaseFilename=Interactive_Office_Map_Setup_v{#MyAppVersion}

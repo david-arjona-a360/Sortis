@@ -196,7 +196,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/SORTIS.ico',
+    icon='assets/blueprint.ico',
     version='SORTIS_version_info.txt',
 )
 coll = COLLECT(

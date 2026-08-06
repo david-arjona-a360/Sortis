@@ -111,7 +111,7 @@ $ReadMePath     = Join-Path $PSScriptRoot "read_me_first.txt"
 
 $AppName        = "SORTIS"                        # internal/exe name, install folder
 $AppDisplayName = "Interactive Office Map"        # installer / branding name
-$AppVersion     = "2.2.0"
+$AppVersion     = "2.2.1"
 $ExeName        = "SORTIS.exe"
 $InstallerName  = "Interactive_Office_Map_Setup_v${AppVersion}.exe"
 $ZipName        = "Interactive_Office_Map_Setup_v${AppVersion}.zip"

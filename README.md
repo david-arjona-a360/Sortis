@@ -7,8 +7,8 @@ sincronización de datos a través de OneDrive.
 
 ## Descargas
 
-**Interactive Office Map v2.2.1** — descarga el instalador
-`Interactive_Office_Map_Setup_v2.2.1.exe` desde la sección **Releases** de
+**Interactive Office Map v2.2.2** — descarga el instalador
+`Interactive_Office_Map_Setup_v2.2.2.exe` desde la sección **Releases** de
 este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
 > Si Microsoft Defender marca el instalador o el ejecutable, es un falso
@@ -27,7 +27,7 @@ este repositorio (<https://github.com/david-arjona-a360/Sortis/releases>).
 
 ## Instalación
 
-1. Descarga `Interactive_Office_Map_Setup_v2.2.1.exe` desde **Releases**.
+1. Descarga `Interactive_Office_Map_Setup_v2.2.2.exe` desde **Releases**.
 2. Ejecuta el instalador (no requiere permisos de administrador). Instala en
    `%LOCALAPPDATA%\SORTIS`, la ruta con permiso de ejecución permitido en la
    red de a360inc.

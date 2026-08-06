@@ -21,7 +21,9 @@ def _show_blocking_error(validation):
         f"{details}\n\n"
         "Make sure OneDrive is running and signed in with your a360inc account, "
         "and that the required folders are available locally "
-        "(right-click the folder in OneDrive -> 'Always keep on this device').",
+        "(right-click the folder in OneDrive -> 'Always keep on this device').\n\n"
+        "Tip: run the app normally (not 'Run as administrator'); elevation is "
+        "not required and can hide your OneDrive folder.",
     )
 
 

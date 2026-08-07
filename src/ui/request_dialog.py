@@ -36,9 +36,6 @@ class RequestDialog(QDialog):
         self.requestor_email = QLineEdit()
         self.requestor_email.setPlaceholderText("email@company.com")
 
-        self.department = QComboBox()
-        self.department.addItems(departments)
-
         self.position = QLineEdit(seat_data["seat_no"])
         self.position.setReadOnly(True)
         person = seat_data.get("person")
@@ -48,14 +45,17 @@ class RequestDialog(QDialog):
         self.proposed_employee = QLineEdit()
         self.proposed_employee.setPlaceholderText("Proposed person name")
 
+        self.department = QComboBox()
+        self.department.addItems(departments)
+
         form.addRow("Request ID:", self.req_id)
         form.addRow("Date:", self.req_date)
         form.addRow("Requestor Name:", self.requestor_name)
         form.addRow("Requestor Email:", self.requestor_email)
-        form.addRow("Department:", self.department)
         form.addRow("Position:", self.position)
         form.addRow("Current Employee:", self.current_employee)
         form.addRow("Proposed Employee:", self.proposed_employee)
+        form.addRow("Department:", self.department)
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)

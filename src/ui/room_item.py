@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QBrush, QColor, QFont, QPen
-from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem
+from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QMenu
 
 from src.theme.theme import CELL_W, CELL_H, CELL_GAP, TEXT_COLOR
 
@@ -54,6 +54,7 @@ class RoomItem(QGraphicsRectItem):
         self.setZValue(-1)
 
         name = room_data.get("name", "").strip()
+        self._room_text = None
         if name:
             text = QGraphicsTextItem(name, self)
             text.setDefaultTextColor(QColor(TEXT_COLOR))
@@ -66,3 +67,13 @@ class RoomItem(QGraphicsRectItem):
                 tr = text.boundingRect()
             text.setPos(x + (rw - tr.width()) / 2, y + (rh - tr.height()) / 2)
             text.setZValue(0)
+            self._room_text = text
+
+        self.setAcceptedMouseButtons(Qt.MouseButton.RightButton)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton:
+            scene = self.scene()
+            if scene and hasattr(scene, "on_room_right_clicked") and scene.on_room_right_clicked:
+                scene.on_room_right_clicked(self.room_data)
+        super().mousePressEvent(event)

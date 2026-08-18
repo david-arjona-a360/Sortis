@@ -20,6 +20,7 @@ class FloorPlanScene(QGraphicsScene):
         self.seat_items = []
         self.selected_seat = None
         self.on_seat_selected = None
+        self.on_room_right_clicked = None
         self._occupancy_filter = "all"
         self._department_filter = None
         self.setBackgroundBrush(QBrush(QColor(COLORS["grid_bg"])))

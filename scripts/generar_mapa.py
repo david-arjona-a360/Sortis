@@ -90,7 +90,29 @@ def read_seats_allocation(wb):
     return seats
 
 
-def read_floor_plan(wb):
+def read_room_names(wb):
+    """Read the 'Room Names' worksheet and return a dict keyed by geometry."""
+    if "Room Names" not in wb.sheetnames:
+        return {}
+    ws = wb["Room Names"]
+    overrides = {}
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row or row[0] is None:
+            continue
+        try:
+            mr = int(row[0])
+            MR = int(row[1])
+            mc = int(row[2])
+            MC = int(row[3])
+        except (TypeError, ValueError, IndexError):
+            continue
+        name = fix_encoding(str(row[4]).strip()) if row[4] is not None else ""
+        if name:
+            overrides[(mr, MR, mc, MC)] = name
+    return overrides
+
+
+def read_floor_plan(wb, room_overrides=None):
     ws = wb["Floor plan"]
     merged_map = {}
     rooms = []
@@ -98,8 +120,11 @@ def read_floor_plan(wb):
         val = ws.cell(mc.min_row, mc.min_col).value
         if val is not None:
             val = fix_encoding(str(val).strip())
+        geo = (mc.min_row, mc.max_row, mc.min_col, mc.max_col)
+        override = (room_overrides or {}).get(geo)
+        name = override or val or ""
         info = {
-            "name": val or "",
+            "name": name,
             "min_row": mc.min_row,
             "min_col": mc.min_col,
             "max_row": mc.max_row,
@@ -108,8 +133,7 @@ def read_floor_plan(wb):
         for r in range(mc.min_row, mc.max_row + 1):
             for c in range(mc.min_col, mc.max_col + 1):
                 merged_map[(r, c)] = info
-        if val:
-            rooms.append(info)
+        rooms.append(info)
 
     seats = []
     for row in range(1, ws.max_row + 1):
@@ -189,7 +213,9 @@ def main():
 
     print(f"Reading: {excel_path}")
     wb = openpyxl.load_workbook(excel_path, data_only=True)
-    rooms, grid_seats, max_row, max_col = read_floor_plan(wb)
+    room_overrides = read_room_names(wb)
+    print(f"  Room name overrides: {len(room_overrides)}")
+    rooms, grid_seats, max_row, max_col = read_floor_plan(wb, room_overrides)
     print(f"  Rooms: {len(rooms)}, Seats on grid: {len(grid_seats)}")
     print(f"  Grid: {max_row}x{max_col}")
 

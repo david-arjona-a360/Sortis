@@ -304,7 +304,7 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         QMessageBox.about(self, "About Interactive Office Map",
-                          "Interactive Office Map v2.2.0\n"
+                          "Interactive Office Map v2.2.2\n"
                           "Seating Organization & Request Tracking\n"
                           "Desktop Edition\n\n"
                           "Built with PySide6")

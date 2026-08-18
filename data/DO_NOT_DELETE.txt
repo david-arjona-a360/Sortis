@@ -1,0 +1,14 @@
+DO NOT DELETE THIS FILE
+========================
+
+SORTIS_FLOOR_PLAN.xlsx is the master floor plan data source for the
+Interactive Office Map application.
+
+This file is used by:
+  - scripts/generar_mapa.py  (generates positions.json)
+  - src/core/excel_utils.py  (runtime room name read/write)
+
+The application READS from and WRITES to this file at runtime.
+Deleting or moving it will break the Interactive Office Map.
+
+Last updated: 2026-08-18

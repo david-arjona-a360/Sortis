@@ -16,7 +16,7 @@ from src.core.path_config import get_floor_plan_path
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-EXCEL_PATH = os.path.join(SCRIPT_DIR, "..", "SORTIS_FLOOR_PLAN.xlsx")
+EXCEL_PATH = os.path.join(SCRIPT_DIR, "..", "data", "SORTIS_FLOOR_PLAN.xlsx")
 PTY_USERS_PATH = r"C:\Users\david.arjona\OneDrive - a360inc\PTY Files - PTY Users\PTY Users & Roles.xlsx"
 
 

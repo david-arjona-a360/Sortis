@@ -1,3 +1,5 @@
+import os
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
@@ -13,14 +15,17 @@ from src.ui.seat_info_panel import SeatInfoPanel
 from src.ui.request_dialog import RequestDialog
 from src.ui.admin_requests_dialog import AdminRequestsDialog
 from src.ui.department_colors_dialog import DepartmentColorsDialog
+from src.ui.room_name_dialog import RoomNameDialog
 from src.ui.user_badge import UserBadge
 from src.core.request_store import RequestStore
 from src.core.auth_manager import AuthManager
 from src.core.color_manager import DeptColorManager
 from src.core.health_check import run_health_check
-from src.core.path_config import get_requests_path, get_logs_path
+from src.core.path_config import get_requests_path, get_logs_path, get_positions_path
 from src.core.log_manager import LogManager
 from src.core.exporter import export_to_pdf, export_to_xlsx
+from src.core.excel_utils import get_excel_path, read_room_names, write_room_name
+from src.core.file_utils import read_json_file, atomic_write_json
 from src.theme.theme import COLORS
 
 
@@ -129,6 +134,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(splitter)
 
         self.scene.on_seat_selected = self._on_seat_selected
+        self.scene.on_room_right_clicked = self._on_room_right_clicked
 
     def _on_filters_changed(self, occupancy, department):
         dept = None if department == "All Departments" else department
@@ -184,6 +190,44 @@ class MainWindow(QMainWindow):
     def _on_seat_selected(self, seat_item):
         self.seat_info_panel.show_seat_info(seat_item.seat_data)
         self._current_seat = seat_item
+
+    def _on_room_right_clicked(self, room_data):
+        if not AuthManager.can_admin():
+            return
+        data = getattr(self.scene, "data", {})
+        rooms = data.get("rooms", [])
+        existing = {r.get("name", "") for r in rooms if r.get("name", "").strip()}
+        dlg = RoomNameDialog(room_data, existing, self)
+        if dlg.exec() != RoomNameDialog.DialogCode.Accepted:
+            return
+        new_name = dlg.new_name
+        geo = (room_data["min_row"], room_data["max_row"],
+               room_data["min_col"], room_data["max_col"])
+        pos_path = get_positions_path()
+        if pos_path:
+            try:
+                pdata = read_json_file(pos_path)
+                for r in pdata.get("rooms", []):
+                    if (r["min_row"], r["max_row"], r["min_col"], r["max_col"]) == geo:
+                        r["name"] = new_name
+                        break
+                directory = os.path.dirname(pos_path)
+                atomic_write_json(directory, "positions.json", pdata)
+            except (OSError, KeyError) as exc:
+                QMessageBox.warning(self, "Save Error",
+                                    "Could not update positions.json:\n%s" % exc)
+                return
+        xlsx = get_excel_path()
+        if xlsx:
+            try:
+                write_room_name(xlsx, geo[0], geo[1], geo[2], geo[3], new_name)
+            except (OSError, PermissionError) as exc:
+                QMessageBox.warning(self, "Excel Error",
+                                    "Room name saved to positions.json but "
+                                    "could not write to Excel:\n%s" % exc)
+        self.scene.load()
+        self.view._apply_zoom()
+        self.status_bar.showMessage("Room renamed to '%s'" % new_name, 5000)
 
     def _request_for_selected(self):
         if not hasattr(self, "_current_seat") or self._current_seat is None:
